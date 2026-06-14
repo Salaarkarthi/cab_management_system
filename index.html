@@ -1,0 +1,2003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CabCore — Cab Management System with DB</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:#0a0f0d;--surface:#101a14;--surface2:#162019;--surface3:#1c2b20;
+  --border:#1e3828;--accent:#00e87a;--blue:#00c8ff;--red:#ff4d6a;
+  --yellow:#ffcc47;--purple:#b07cff;--orange:#ff8a3d;--pink:#ff6eb4;
+  --text:#e8f5ee;--text2:#7aab8e;--text3:#3a6050;
+  --glow:0 0 22px rgba(0,232,122,0.13);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 15% 20%,rgba(0,232,122,0.06) 0%,transparent 50%),radial-gradient(ellipse at 85% 80%,rgba(0,200,255,0.05) 0%,transparent 50%);pointer-events:none;z-index:0;}
+.app{display:flex;min-height:100vh;position:relative;z-index:1;}
+
+/* SIDEBAR */
+.sidebar{width:255px;min-height:100vh;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+.logo{padding:24px 20px 18px;border-bottom:1px solid var(--border);}
+.logo-mark{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--accent);}
+.logo-mark span{color:var(--text2);font-weight:400;font-size:12px;display:block;margin-top:2px;}
+.nav{flex:1;padding:12px 0;}
+.nav-section{padding:8px 20px 4px;font-size:10px;font-weight:600;letter-spacing:2px;color:var(--text3);text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;transition:all 0.2s;color:var(--text2);font-size:13px;position:relative;}
+.nav-item:hover{color:var(--text);background:var(--surface2);}
+.nav-item.active{color:var(--accent);background:rgba(0,232,122,0.07);}
+.nav-item.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);border-radius:0 2px 2px 0;}
+.sidebar-footer{padding:14px 20px;border-top:1px solid var(--border);}
+.db-status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);}
+.db-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.page-title{font-family:'Syne',sans-serif;font-weight:700;font-size:17px;}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.badge{background:rgba(0,232,122,0.1);border:1px solid rgba(0,232,122,0.2);color:var(--accent);padding:3px 10px;border-radius:20px;font-size:12px;}
+.content{flex:1;padding:24px 28px;}
+.page{display:none;}.page.active{display:block;}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative;overflow:hidden;transition:transform 0.2s,box-shadow 0.2s;}
+.stat-card:hover{transform:translateY(-2px);box-shadow:var(--glow);}
+.stat-card::after{content:'';position:absolute;top:0;right:0;width:70px;height:70px;border-radius:50%;filter:blur(28px);opacity:0.15;}
+.stat-card.green::after{background:var(--accent);}
+.stat-card.blue::after{background:var(--blue);}
+.stat-card.yellow::after{background:var(--yellow);}
+.stat-card.orange::after{background:var(--orange);}
+.stat-card.purple::after{background:var(--purple);}
+.stat-card.red::after{background:var(--red);}
+.stat-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;}
+.stat-value{font-family:'Syne',sans-serif;font-weight:800;font-size:28px;margin:6px 0 3px;}
+.stat-sub{font-size:11px;color:var(--text3);}
+.stat-icon{position:absolute;top:16px;right:16px;font-size:20px;opacity:0.6;}
+
+/* PANELS */
+.panel-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.panel.full{grid-column:1/-1;}
+.panel.third{grid-column:span 1;}
+.panel-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.panel-title{font-family:'Syne',sans-serif;font-weight:700;font-size:14px;}
+.panel-body{padding:18px;}
+
+/* BUTTONS */
+.btn{padding:8px 16px;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px;}
+.btn-primary{background:var(--accent);color:#000;}
+.btn-primary:hover{background:#33f09a;box-shadow:0 0 14px rgba(0,232,122,0.3);}
+.btn-danger{background:rgba(255,77,106,0.15);color:var(--red);border:1px solid rgba(255,77,106,0.3);}
+.btn-danger:hover{background:rgba(255,77,106,0.25);}
+.btn-success{background:rgba(0,232,122,0.15);color:var(--accent);border:1px solid rgba(0,232,122,0.3);}
+.btn-info{background:rgba(0,200,255,0.15);color:var(--blue);border:1px solid rgba(0,200,255,0.3);}
+.btn-warning{background:rgba(255,204,71,0.15);color:var(--yellow);border:1px solid rgba(255,204,71,0.3);}
+.btn-purple{background:rgba(176,124,255,0.15);color:var(--purple);border:1px solid rgba(176,124,255,0.3);}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+.btn-sm{padding:5px 10px;font-size:12px;}
+
+/* FORMS */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-group{display:flex;flex-direction:column;gap:5px;}
+.form-group.full{grid-column:1/-1;}
+label{font-size:11px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;}
+input,select,textarea{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;transition:border-color 0.2s;width:100%;outline:none;}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+select option{background:var(--surface2);}
+textarea{resize:vertical;min-height:70px;}
+.form-actions{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;}
+
+/* TABLES */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;padding:9px 12px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;border-bottom:1px solid var(--border);}
+td{padding:10px 12px;border-bottom:1px solid rgba(30,56,40,0.5);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,0.02);}
+.cell-id{font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:11px;}
+.cell-name{font-weight:500;}
+.actions-cell{display:flex;gap:5px;}
+.tag{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+.tag-green{background:rgba(0,232,122,0.1);color:var(--accent);}
+.tag-blue{background:rgba(0,200,255,0.1);color:var(--blue);}
+.tag-red{background:rgba(255,77,106,0.1);color:var(--red);}
+.tag-yellow{background:rgba(255,204,71,0.1);color:var(--yellow);}
+.tag-purple{background:rgba(176,124,255,0.1);color:var(--purple);}
+.tag-orange{background:rgba(255,138,61,0.1);color:var(--orange);}
+.tag-pink{background:rgba(255,110,180,0.1);color:var(--pink);}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;animation:slideUp 0.25s ease;}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.modal-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;}
+.modal-close{background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;}
+.modal-body{padding:22px;}
+.modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
+
+/* TOAST */
+.toast-container{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:7px;}
+.toast{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 16px;font-size:13px;color:var(--text);min-width:200px;animation:toastIn 0.3s ease;display:flex;align-items:center;gap:9px;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
+.toast.success{border-color:rgba(0,232,122,0.4);}
+.toast.error{border-color:rgba(255,77,106,0.4);}
+@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+.empty{text-align:center;padding:36px 20px;color:var(--text3);}
+.empty-icon{font-size:32px;margin-bottom:8px;}
+
+/* ========== DB-SPECIFIC STYLES ========== */
+/* SQL Editor */
+.sql-editor-wrap{position:relative;}
+.sql-editor{
+  font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.7;
+  background:var(--surface2);border:1px solid var(--border);border-radius:9px;
+  color:#b8f0c8;padding:16px;width:100%;min-height:120px;resize:vertical;outline:none;
+}
+.sql-editor:focus{border-color:var(--accent);}
+.sql-toolbar{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.query-result{margin-top:14px;}
+.result-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.result-badge{background:rgba(0,200,255,0.1);border:1px solid rgba(0,200,255,0.2);color:var(--blue);padding:3px 10px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;}
+.result-time{font-size:11px;color:var(--text3);}
+
+/* Schema Table */
+.schema-table{width:100%;border-collapse:collapse;font-size:12px;font-family:'JetBrains Mono',monospace;}
+.schema-table th{padding:8px 12px;background:rgba(0,232,122,0.05);border-bottom:1px solid var(--border);color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:1px;}
+.schema-table td{padding:7px 12px;border-bottom:1px solid rgba(30,56,40,0.4);vertical-align:middle;}
+.schema-table tr:last-child td{border-bottom:none;}
+.col-pk{color:var(--yellow);font-size:10px;}
+.col-fk{color:var(--purple);font-size:10px;}
+.col-type{color:var(--blue);font-size:11px;}
+.col-name{color:var(--accent);}
+.col-null{color:var(--text3);font-size:10px;}
+
+/* ERD */
+.erd-container{display:flex;flex-wrap:wrap;gap:16px;padding:16px;justify-content:center;}
+.erd-table{background:var(--surface2);border:1px solid var(--border);border-radius:10px;min-width:160px;overflow:hidden;}
+.erd-table-header{background:rgba(0,232,122,0.1);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--accent);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;}
+.erd-table-body{padding:8px 0;}
+.erd-col{padding:4px 14px;font-size:11px;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:6px;color:var(--text2);}
+.erd-col.pk{color:var(--yellow);}
+.erd-col.fk{color:var(--purple);}
+.erd-arrows{display:flex;flex-direction:column;gap:8px;padding:0 10px;justify-content:center;}
+.erd-arrow{color:var(--text3);font-size:11px;text-align:center;white-space:nowrap;}
+
+/* Index List */
+.index-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--surface2);}
+.index-name{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);}
+.index-meta{font-size:11px;color:var(--text2);}
+
+/* Backup item */
+.backup-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--surface2);transition:border-color 0.2s;}
+.backup-item:hover{border-color:var(--accent);}
+.backup-name{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);}
+.backup-meta{font-size:11px;color:var(--text2);}
+
+/* Tabs */
+.tab-bar{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:18px;}
+.tab-btn{padding:8px 16px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;transition:all 0.2s;margin-bottom:-1px;}
+.tab-btn:hover{color:var(--text);}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-content{display:none;}.tab-content.active{display:block;}
+
+/* Search bar */
+.search-input{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;}
+.search-input:focus{border-color:var(--accent);}
+
+/* Progress */
+.progress-bar{height:5px;background:var(--surface3);border-radius:3px;overflow:hidden;margin-top:5px;}
+.progress-fill{height:100%;border-radius:3px;transition:width 0.5s;}
+
+/* Relation Badge */
+.rel-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:5px;font-size:11px;font-family:'JetBrains Mono',monospace;background:rgba(176,124,255,0.1);color:var(--purple);border:1px solid rgba(176,124,255,0.2);}
+
+/* Section */
+.section-title{font-family:'Syne',sans-serif;font-weight:700;font-size:19px;margin-bottom:4px;}
+.section-sub{color:var(--text2);font-size:13px;margin-bottom:18px;}
+
+/* map box */
+.map-box{background:var(--surface2);border:1px solid var(--border);border-radius:9px;height:180px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text3);font-size:13px;position:relative;overflow:hidden;}
+.map-box::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 29px,rgba(30,56,40,0.3) 30px),repeating-linear-gradient(90deg,transparent,transparent 29px,rgba(30,56,40,0.3) 30px);}
+.map-pin{font-size:26px;position:relative;z-index:1;animation:bounce 1.5s infinite;}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.route-line{width:70%;height:2px;background:linear-gradient(90deg,var(--accent),var(--blue));border-radius:2px;position:relative;z-index:1;}
+.route-line::before,.route-line::after{content:'●';position:absolute;top:50%;transform:translateY(-50%);font-size:8px;}
+.route-line::before{left:-5px;color:var(--accent);}
+.route-line::after{right:-5px;color:var(--blue);}
+
+/* Notification dot */
+.notif{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--red);color:#fff;font-size:9px;font-weight:700;margin-left:4px;}
+
+/* ========== LOGIN SCREEN ========== */
+#login-screen{
+  position:fixed;inset:0;z-index:9999;
+  background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  animation:fadeIn 0.4s ease;
+}
+#login-screen::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 20% 30%,rgba(0,232,122,0.08) 0%,transparent 55%),
+             radial-gradient(ellipse at 80% 70%,rgba(0,200,255,0.06) 0%,transparent 55%);
+  pointer-events:none;
+}
+.login-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;width:420px;max-width:95vw;
+  padding:40px 36px;position:relative;z-index:1;
+  box-shadow:0 24px 80px rgba(0,0,0,0.5);
+  animation:slideUp 0.4s ease;
+}
+.login-logo{text-align:center;margin-bottom:28px;}
+.login-logo-icon{font-size:40px;margin-bottom:10px;}
+.login-logo-title{font-family:'Syne',sans-serif;font-weight:800;font-size:28px;color:var(--accent);}
+.login-logo-sub{font-size:13px;color:var(--text2);margin-top:4px;}
+.login-divider{height:1px;background:var(--border);margin:22px 0;}
+.login-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;}
+.login-input{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  border-radius:9px;padding:11px 14px;color:var(--text);font-family:'DM Sans',sans-serif;
+  font-size:14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;margin-bottom:14px;
+}
+.login-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,232,122,0.1);}
+.login-input::placeholder{color:var(--text3);}
+.login-btn{
+  width:100%;padding:12px;border-radius:9px;font-family:'DM Sans',sans-serif;
+  font-size:14px;font-weight:600;cursor:pointer;border:none;
+  background:var(--accent);color:#000;transition:all 0.2s;margin-top:4px;
+}
+.login-btn:hover{background:#33f09a;box-shadow:0 0 18px rgba(0,232,122,0.35);}
+.login-or{display:flex;align-items:center;gap:12px;margin:18px 0;}
+.login-or span{font-size:12px;color:var(--text3);}
+.login-or::before,.login-or::after{content:'';flex:1;height:1px;background:var(--border);}
+.google-btn{
+  width:100%;padding:11px;border-radius:9px;font-family:'DM Sans',sans-serif;
+  font-size:14px;font-weight:500;cursor:pointer;
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.google-btn:hover{border-color:rgba(0,200,255,0.5);background:rgba(0,200,255,0.06);color:var(--blue);}
+.google-icon{width:18px;height:18px;flex-shrink:0;}
+.login-error{
+  background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);
+  border-radius:8px;padding:10px 14px;font-size:13px;color:var(--red);
+  margin-bottom:14px;display:none;
+}
+.login-footer{text-align:center;margin-top:22px;font-size:12px;color:var(--text3);}
+.login-user-bar{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(0,232,122,0.07);border:1px solid rgba(0,232,122,0.15);
+  border-radius:8px;padding:7px 12px;
+}
+.login-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#000;}
+.login-username{font-size:13px;font-weight:500;color:var(--text);flex:1;}
+.logout-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:2px 6px;border-radius:5px;transition:all 0.2s;}
+.logout-btn:hover{color:var(--red);background:rgba(255,77,106,0.1);}
+/* Google modal */
+.google-modal-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);
+  backdrop-filter:blur(4px);z-index:10000;align-items:center;justify-content:center;
+}
+.google-modal-overlay.open{display:flex;}
+.google-modal{
+  background:#fff;border-radius:16px;width:380px;max-width:95vw;
+  padding:32px 28px;animation:slideUp 0.25s ease;box-shadow:0 20px 60px rgba(0,0,0,0.4);
+}
+.gm-logo{text-align:center;margin-bottom:20px;}
+.gm-title{font-family:Arial,sans-serif;font-size:22px;font-weight:700;color:#202124;text-align:center;margin-bottom:6px;}
+.gm-sub{font-size:13px;color:#5f6368;text-align:center;margin-bottom:20px;}
+.gm-input{
+  width:100%;border:1px solid #dadce0;border-radius:4px;padding:12px 14px;
+  font-size:14px;font-family:Arial,sans-serif;outline:none;margin-bottom:14px;color:#202124;
+  transition:border-color 0.2s;
+}
+.gm-input:focus{border-color:#1a73e8;box-shadow:0 0 0 2px rgba(26,115,232,0.2);}
+.gm-btn{
+  width:100%;padding:11px;border-radius:4px;font-family:Arial,sans-serif;
+  font-size:14px;font-weight:500;cursor:pointer;border:none;
+  background:#1a73e8;color:#fff;transition:background 0.2s;
+}
+.gm-btn:hover{background:#1557b0;}
+.gm-cancel{width:100%;padding:10px;border-radius:4px;font-size:14px;cursor:pointer;background:none;border:1px solid #dadce0;color:#5f6368;font-family:Arial,sans-serif;margin-top:8px;transition:background 0.2s;}
+.gm-cancel:hover{background:#f1f3f4;}
+.gm-error{color:#d93025;font-size:12px;margin-bottom:10px;display:none;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+</style>
+</head>
+<body>
+
+<!-- ========== LOGIN SCREEN ========== -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">🚖</div>
+      <div class="login-logo-title">CabCore</div>
+      <div class="login-logo-sub">Cab Management System — Sign in to continue</div>
+    </div>
+    <div class="login-error" id="login-error">❌ Invalid username or password. Please try again.</div>
+    <label class="login-label">Username</label>
+    <input class="login-input" id="login-username" type="text" placeholder="Enter your username" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()"/>
+    <label class="login-label">Password</label>
+    <input class="login-input" id="login-password" type="password" placeholder="Enter your password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/>
+    <button class="login-btn" onclick="doLogin()">🔐 Sign In</button>
+    <div class="login-or"><span>or</span></div>
+    <button class="google-btn" onclick="openGoogleModal()">
+      <svg class="google-icon" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+      Continue with Google
+    </button>
+    <div class="login-footer">
+      <strong style="color:var(--text2);">Demo credentials:</strong><br/>
+      Username: <code style="color:var(--accent)">admin</code> &nbsp;|&nbsp; Password: <code style="color:var(--accent)">cabcore123</code>
+    </div>
+  </div>
+</div>
+
+<!-- ========== GOOGLE SIGN-IN MODAL ========== -->
+<div class="google-modal-overlay" id="googleModal">
+  <div class="google-modal">
+    <div class="gm-logo" style="text-align:center;margin-bottom:14px;">
+      <svg width="40" height="40" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+    </div>
+    <div class="gm-title">Sign in with Google</div>
+    <div class="gm-sub">Enter your Google account email to continue</div>
+    <div class="gm-error" id="gm-error">Please enter a valid Gmail address.</div>
+    <input class="gm-input" id="gm-email" type="email" placeholder="yourname@gmail.com" onkeydown="if(event.key==='Enter')document.getElementById('gm-pass').focus()"/>
+    <input class="gm-input" id="gm-pass" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')doGoogleLogin()"/>
+    <button class="gm-btn" onclick="doGoogleLogin()">Sign In</button>
+    <button class="gm-cancel" onclick="closeGoogleModal()">Cancel</button>
+  </div>
+</div>
+
+<div class="app" id="main-app" style="display:none;">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">🚖 CabCore
+      <span>Fleet & Database Management</span>
+    </div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" onclick="showPage('dashboard',this)"><span>📊</span> Dashboard</div>
+    <div class="nav-section">Operations</div>
+    <div class="nav-item" onclick="showPage('drivers',this)"><span>🧑‍✈️</span> Drivers</div>
+    <div class="nav-item" onclick="showPage('vehicles',this)"><span>🚗</span> Vehicles</div>
+    <div class="nav-item" onclick="showPage('bookings',this)"><span>📋</span> Bookings</div>
+    <div class="nav-item" onclick="showPage('trips',this)"><span>🗺️</span> Trips</div>
+    <div class="nav-section">Finance</div>
+    <div class="nav-item" onclick="showPage('billing',this)"><span>💰</span> Billing</div>
+    <div class="nav-item" onclick="showPage('customers',this)"><span>👥</span> Customers</div>
+    <div class="nav-section">Database</div>
+    <div class="nav-item" onclick="showPage('db-schema',this)"><span>🗄️</span> Schema & Tables</div>
+    <div class="nav-item" onclick="showPage('db-query',this)"><span>💻</span> SQL Query Runner</div>
+    <div class="nav-item" onclick="showPage('db-relations',this)"><span>🔗</span> Relationships (ERD)</div>
+    <div class="nav-item" onclick="showPage('db-indexes',this)"><span>⚡</span> Indexes</div>
+    <div class="nav-item" onclick="showPage('db-backup',this)"><span>💾</span> Backup & Restore</div>
+    <div class="nav-item" onclick="showPage('db-logs',this)"><span>📜</span> Transaction Logs</div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="db-status"><div class="db-dot"></div>DB Connected — v1.0.0</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="page-title" id="topbar-title">Dashboard</div>
+    <div class="topbar-right">
+      <span class="badge" id="live-time"></span>
+      <span class="badge" style="background:rgba(0,200,255,0.1);border-color:rgba(0,200,255,0.2);color:var(--blue);" id="db-record-count">0 records</span>
+      <div class="login-user-bar">
+        <div class="login-avatar" id="user-avatar">A</div>
+        <span class="login-username" id="user-name">Admin</span>
+        <button class="logout-btn" onclick="doLogout()">Logout</button>
+      </div>
+    </div>
+  </div>
+  <div class="content">
+
+    <!-- ===== DASHBOARD ===== -->
+    <div class="page active" id="page-dashboard">
+      <div class="section-title">Operations Overview</div>
+      <div class="section-sub">Live summary of your cab fleet and database</div>
+      <div class="stats-grid">
+        <div class="stat-card green"><div class="stat-icon">🧑‍✈️</div><div class="stat-label">Drivers</div><div class="stat-value" id="stat-drivers">0</div><div class="stat-sub">Registered</div></div>
+        <div class="stat-card blue"><div class="stat-icon">🚗</div><div class="stat-label">Vehicles</div><div class="stat-value" id="stat-vehicles">0</div><div class="stat-sub">Fleet size</div></div>
+        <div class="stat-card yellow"><div class="stat-icon">📋</div><div class="stat-label">Bookings</div><div class="stat-value" id="stat-bookings">0</div><div class="stat-sub">All time</div></div>
+        <div class="stat-card orange"><div class="stat-icon">💰</div><div class="stat-label">Revenue</div><div class="stat-value" id="stat-revenue">₹0</div><div class="stat-sub">Collected</div></div>
+      </div>
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Recent Bookings</div></div>
+          <div class="panel-body">
+            <div class="table-wrap"><table><thead><tr><th>ID</th><th>Customer</th><th>Route</th><th>Status</th></tr></thead><tbody id="dash-bookings-tbody"></tbody></table></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Driver Status</div></div>
+          <div class="panel-body">
+            <div class="table-wrap"><table><thead><tr><th>ID</th><th>Driver</th><th>Vehicle</th><th>Status</th></tr></thead><tbody id="dash-drivers-tbody"></tbody></table></div>
+          </div>
+        </div>
+      </div>
+      <!-- DB Summary on dashboard -->
+      <div class="panel full">
+        <div class="panel-header"><div class="panel-title">🗄️ Database Summary</div></div>
+        <div class="panel-body">
+          <div class="stats-grid" style="margin-bottom:0;">
+            <div class="stat-card blue" style="padding:14px;"><div class="stat-label" style="font-size:10px;">Total Tables</div><div class="stat-value" style="font-size:22px;">6</div><div class="stat-sub">Schema tables</div></div>
+            <div class="stat-card green" style="padding:14px;"><div class="stat-label" style="font-size:10px;">Total Records</div><div class="stat-value" style="font-size:22px;" id="db-total-records">0</div><div class="stat-sub">Across all tables</div></div>
+            <div class="stat-card purple" style="padding:14px;"><div class="stat-label" style="font-size:10px;">Indexes</div><div class="stat-value" style="font-size:22px;">8</div><div class="stat-sub">Active indexes</div></div>
+            <div class="stat-card yellow" style="padding:14px;"><div class="stat-label" style="font-size:10px;">Transactions</div><div class="stat-value" style="font-size:22px;" id="db-txn-count">0</div><div class="stat-sub">Logged</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DRIVERS ===== -->
+    <div class="page" id="page-drivers">
+      <div class="section-title">Driver Management</div>
+      <div class="section-sub">Add, edit and manage all drivers</div>
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">➕ Add Driver</div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="form-group"><label>Full Name</label><input id="dr-name" placeholder="Ramesh Kumar"/></div>
+              <div class="form-group"><label>Phone</label><input id="dr-phone" placeholder="+91 9876543210"/></div>
+              <div class="form-group"><label>License No.</label><input id="dr-license" placeholder="KA01 20200012345"/></div>
+              <div class="form-group"><label>Experience (yrs)</label><input type="number" id="dr-exp" placeholder="5" min="0"/></div>
+              <div class="form-group"><label>Assign Vehicle</label><select id="dr-vehicle"><option value="">-- None --</option></select></div>
+              <div class="form-group"><label>Status</label><select id="dr-status"><option>Available</option><option>On Trip</option><option>Off Duty</option></select></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="addDriver()">➕ Add Driver</button>
+              <button class="btn btn-ghost" onclick="clearDriverForm()">Clear</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Driver Stats</div></div>
+          <div class="panel-body">
+            <div class="stats-grid" style="grid-template-columns:1fr 1fr;gap:10px;margin-bottom:0;">
+              <div class="stat-card green" style="padding:12px;"><div class="stat-label" style="font-size:10px;">Available</div><div class="stat-value" style="font-size:22px;" id="drv-avail">0</div></div>
+              <div class="stat-card blue" style="padding:12px;"><div class="stat-label" style="font-size:10px;">On Trip</div><div class="stat-value" style="font-size:22px;" id="drv-ontrip">0</div></div>
+              <div class="stat-card yellow" style="padding:12px;"><div class="stat-label" style="font-size:10px;">Off Duty</div><div class="stat-value" style="font-size:22px;" id="drv-offduty">0</div></div>
+              <div class="stat-card orange" style="padding:12px;"><div class="stat-label" style="font-size:10px;">Total</div><div class="stat-value" style="font-size:22px;" id="drv-total">0</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel full">
+        <div class="panel-header">
+          <div class="panel-title">All Drivers</div>
+          <input class="search-input" style="width:180px;" placeholder="🔍 Search..." oninput="searchTable('drivers-tbody',this.value)"/>
+        </div>
+        <div class="panel-body">
+          <div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>License</th><th>Exp</th><th>Vehicle</th><th>Status</th><th>Actions</th></tr></thead><tbody id="drivers-tbody"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== VEHICLES ===== -->
+    <div class="page" id="page-vehicles">
+      <div class="section-title">Vehicle Management</div>
+      <div class="section-sub">Manage your cab fleet</div>
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">➕ Add Vehicle</div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="form-group"><label>Registration No.</label><input id="v-reg" placeholder="KA01AB1234"/></div>
+              <div class="form-group"><label>Make & Model</label><input id="v-model" placeholder="Maruti Swift Dzire"/></div>
+              <div class="form-group"><label>Type</label><select id="v-type"><option>Sedan</option><option>SUV</option><option>Mini</option><option>Prime</option><option>Auto</option></select></div>
+              <div class="form-group"><label>Year</label><input type="number" id="v-year" placeholder="2022"/></div>
+              <div class="form-group"><label>Color</label><input id="v-color" placeholder="White"/></div>
+              <div class="form-group"><label>Fuel Type</label><select id="v-fuel"><option>Petrol</option><option>Diesel</option><option>CNG</option><option>Electric</option></select></div>
+              <div class="form-group"><label>Seats</label><input type="number" id="v-seats" placeholder="4" min="1"/></div>
+              <div class="form-group"><label>Status</label><select id="v-status"><option>Active</option><option>In Service</option><option>Inactive</option></select></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="addVehicle()">➕ Add Vehicle</button>
+              <button class="btn btn-ghost" onclick="clearVehicleForm()">Clear</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Fleet Stats</div></div>
+          <div class="panel-body">
+            <div class="stats-grid" style="grid-template-columns:1fr 1fr;gap:10px;margin-bottom:0;">
+              <div class="stat-card green" style="padding:12px;"><div class="stat-label" style="font-size:10px;">Active</div><div class="stat-value" style="font-size:22px;" id="veh-active">0</div></div>
+              <div class="stat-card yellow" style="padding:12px;"><div class="stat-label" style="font-size:10px;">In Service</div><div class="stat-value" style="font-size:22px;" id="veh-service">0</div></div>
+              <div class="stat-card red" style="padding:12px;"><div class="stat-label" style="font-size:10px;">Inactive</div><div class="stat-value" style="font-size:22px;" id="veh-inactive">0</div></div>
+              <div class="stat-card blue" style="padding:12px;"><div class="stat-label" style="font-size:10px;">Total</div><div class="stat-value" style="font-size:22px;" id="veh-total">0</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel full">
+        <div class="panel-header"><div class="panel-title">All Vehicles</div></div>
+        <div class="panel-body">
+          <div class="table-wrap"><table><thead><tr><th>ID</th><th>Reg No.</th><th>Model</th><th>Type</th><th>Year</th><th>Color</th><th>Fuel</th><th>Seats</th><th>Status</th><th>Actions</th></tr></thead><tbody id="vehicles-tbody"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== BOOKINGS ===== -->
+    <div class="page" id="page-bookings">
+      <div class="section-title">Booking Management</div>
+      <div class="section-sub">Create and track customer ride bookings</div>
+      <div class="panel full" style="margin-bottom:16px;">
+        <div class="panel-header"><div class="panel-title">➕ New Booking</div></div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div class="form-group"><label>Customer</label><select id="b-customer"><option value="">-- Select --</option></select></div>
+            <div class="form-group"><label>Driver</label><select id="b-driver"><option value="">-- Select --</option></select></div>
+            <div class="form-group"><label>Pickup Location</label><input id="b-from" placeholder="Koramangala"/></div>
+            <div class="form-group"><label>Drop Location</label><input id="b-to" placeholder="Airport"/></div>
+            <div class="form-group"><label>Date</label><input type="date" id="b-date"/></div>
+            <div class="form-group"><label>Time</label><input type="time" id="b-time"/></div>
+            <div class="form-group"><label>Ride Type</label><select id="b-type"><option>One Way</option><option>Round Trip</option><option>Hourly Rental</option><option>Airport Transfer</option></select></div>
+            <div class="form-group"><label>Distance (km)</label><input type="number" id="b-dist" placeholder="25"/></div>
+            <div class="form-group"><label>Fare (₹)</label><input type="number" id="b-fare" placeholder="450"/></div>
+            <div class="form-group"><label>Priority</label><select id="b-priority"><option>Normal</option><option>High</option><option>Emergency</option></select></div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="addBooking()">📋 Create Booking</button>
+            <button class="btn btn-ghost" onclick="clearBookingForm()">Clear</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel full">
+        <div class="panel-header"><div class="panel-title">All Bookings</div></div>
+        <div class="panel-body">
+          <div class="table-wrap"><table><thead><tr><th>ID</th><th>Customer</th><th>Driver</th><th>From</th><th>To</th><th>Date</th><th>Fare</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead><tbody id="bookings-tbody"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TRIPS ===== -->
+    <div class="page" id="page-trips">
+      <div class="section-title">Trip Tracking</div>
+      <div class="section-sub">Monitor active and completed trips</div>
+      <div class="panel full" style="margin-bottom:16px;">
+        <div class="panel-header"><div class="panel-title">🗺️ Live Map View</div></div>
+        <div class="panel-body">
+          <div class="map-box"><div class="map-pin">📍</div><div class="route-line"></div><span style="position:relative;z-index:1;font-size:12px;">GPS Live Tracking — Active trips shown here</span></div>
+        </div>
+      </div>
+      <div class="panel full">
+        <div class="panel-header"><div class="panel-title">All Trips</div></div>
+        <div class="panel-body">
+          <div class="table-wrap"><table><thead><tr><th>Trip ID</th><th>Booking</th><th>Driver</th><th>Customer</th><th>Start</th><th>End</th><th>Dist</th><th>Duration</th><th>Status</th><th>Actions</th></tr></thead><tbody id="trips-tbody"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== BILLING ===== -->
+    <div class="page" id="page-billing">
+      <div class="section-title">Billing & Payments</div>
+      <div class="section-sub">Generate invoices and track revenue</div>
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">💳 Generate Invoice</div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="form-group"><label>Booking</label><select id="bill-booking"><option value="">-- Select --</option></select></div>
+              <div class="form-group"><label>Amount (₹)</label><input type="number" id="bill-amount" placeholder="450"/></div>
+              <div class="form-group"><label>Tax (₹)</label><input type="number" id="bill-tax" placeholder="50"/></div>
+              <div class="form-group"><label>Discount (₹)</label><input type="number" id="bill-discount" placeholder="0"/></div>
+              <div class="form-group"><label>Payment Mode</label><select id="bill-mode"><option>Cash</option><option>UPI</option><option>Card</option><option>Wallet</option></select></div>
+              <div class="form-group"><label>Status</label><select id="bill-status"><option>Paid</option><option>Pending</option><option>Partial</option></select></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="addBill()">💳 Generate</button>
+              <button class="btn btn-ghost" onclick="clearBillForm()">Clear</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Revenue Summary</div></div>
+          <div class="panel-body">
+            <div class="stats-grid" style="grid-template-columns:1fr 1fr;gap:10px;margin-bottom:0;">
+              <div class="stat-card green" style="padding:12px;"><div class="stat-label" style="font-size:10px;">Paid</div><div class="stat-value" style="font-size:18px;" id="bill-paid-amt">₹0</div></div>
+              <div class="stat-card yellow" style="padding:12px;"><div class="stat-label" style="font-size:10px;">Pending</div><div class="stat-value" style="font-size:18px;" id="bill-pending-amt">₹0</div></div>
+              <div class="stat-card blue" style="padding:12px;"><div class="stat-label" style="font-size:10px;">Invoices</div><div class="stat-value" style="font-size:22px;" id="bill-count">0</div></div>
+              <div class="stat-card orange" style="padding:12px;"><div class="stat-label" style="font-size:10px;">Total Revenue</div><div class="stat-value" style="font-size:18px;" id="bill-total-amt">₹0</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel full">
+        <div class="panel-header"><div class="panel-title">All Invoices</div></div>
+        <div class="panel-body">
+          <div class="table-wrap"><table><thead><tr><th>Invoice ID</th><th>Booking</th><th>Amount</th><th>Tax</th><th>Discount</th><th>Total</th><th>Mode</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody id="bills-tbody"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== CUSTOMERS ===== -->
+    <div class="page" id="page-customers">
+      <div class="section-title">Customer Management</div>
+      <div class="section-sub">Manage passenger records</div>
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">➕ Add Customer</div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="form-group"><label>Full Name</label><input id="c-name" placeholder="Priya Sharma"/></div>
+              <div class="form-group"><label>Phone</label><input id="c-phone" placeholder="+91 9876543210"/></div>
+              <div class="form-group"><label>Email</label><input type="email" id="c-email" placeholder="priya@email.com"/></div>
+              <div class="form-group"><label>City</label><input id="c-city" placeholder="Bengaluru"/></div>
+              <div class="form-group full"><label>Address</label><textarea id="c-address" placeholder="Flat 4B, HSR Layout..."></textarea></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="addCustomer()">➕ Add Customer</button>
+              <button class="btn btn-ghost" onclick="clearCustomerForm()">Clear</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Customer Stats</div></div>
+          <div class="panel-body">
+            <div class="stats-grid" style="grid-template-columns:1fr 1fr;gap:10px;margin-bottom:0;">
+              <div class="stat-card green" style="padding:12px;"><div class="stat-label" style="font-size:10px;">Total</div><div class="stat-value" style="font-size:22px;" id="cust-total">0</div></div>
+              <div class="stat-card blue" style="padding:12px;"><div class="stat-label" style="font-size:10px;">Active</div><div class="stat-value" style="font-size:22px;" id="cust-active">0</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel full">
+        <div class="panel-header"><div class="panel-title">All Customers</div></div>
+        <div class="panel-body">
+          <div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Email</th><th>City</th><th>Rides</th><th>Actions</th></tr></thead><tbody id="customers-tbody"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DB SCHEMA ===== -->
+    <div class="page" id="page-db-schema">
+      <div class="section-title">🗄️ Schema & Tables</div>
+      <div class="section-sub">Database structure — all tables, columns, data types and constraints</div>
+      <div class="stats-grid">
+        <div class="stat-card blue"><div class="stat-icon">📋</div><div class="stat-label">Tables</div><div class="stat-value">6</div><div class="stat-sub">Schema tables</div></div>
+        <div class="stat-card green"><div class="stat-icon">🗂️</div><div class="stat-label">Total Columns</div><div class="stat-value">42</div><div class="stat-sub">Across all tables</div></div>
+        <div class="stat-card yellow"><div class="stat-icon">🔑</div><div class="stat-label">Primary Keys</div><div class="stat-value">6</div><div class="stat-sub">Auto-increment PKs</div></div>
+        <div class="stat-card purple"><div class="stat-icon">🔗</div><div class="stat-label">Foreign Keys</div><div class="stat-value">5</div><div class="stat-sub">Relational links</div></div>
+      </div>
+
+      <!-- Table Selector Tabs -->
+      <div class="tab-bar" id="schema-tabs">
+        <button class="tab-btn active" onclick="showSchemaTab('customers',this)">👥 customers</button>
+        <button class="tab-btn" onclick="showSchemaTab('drivers',this)">🧑‍✈️ drivers</button>
+        <button class="tab-btn" onclick="showSchemaTab('vehicles',this)">🚗 vehicles</button>
+        <button class="tab-btn" onclick="showSchemaTab('bookings',this)">📋 bookings</button>
+        <button class="tab-btn" onclick="showSchemaTab('trips',this)">🗺️ trips</button>
+        <button class="tab-btn" onclick="showSchemaTab('invoices',this)">💳 invoices</button>
+      </div>
+
+      <div class="panel full">
+        <div class="panel-header">
+          <div class="panel-title" id="schema-table-title">Table: customers</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="result-badge" id="schema-row-count">0 rows</span>
+            <span style="font-size:11px;color:var(--text3);">InnoDB · UTF8mb4</span>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="table-wrap">
+            <table class="schema-table" id="schema-cols-table">
+              <thead><tr><th>#</th><th>Column Name</th><th>Data Type</th><th>Key</th><th>Nullable</th><th>Default</th><th>Description</th></tr></thead>
+              <tbody id="schema-cols-tbody"></tbody>
+            </table>
+          </div>
+          <div style="margin-top:18px;">
+            <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-family:'JetBrains Mono',monospace;">CREATE TABLE statement:</div>
+            <pre id="schema-ddl" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#b8f0c8;overflow-x:auto;white-space:pre;line-height:1.6;"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Data Preview -->
+      <div class="panel full">
+        <div class="panel-header"><div class="panel-title" id="schema-data-title">Live Data — customers</div><span class="result-badge" id="schema-data-badge">Loading...</span></div>
+        <div class="panel-body">
+          <div class="table-wrap" id="schema-live-data"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SQL QUERY RUNNER ===== -->
+    <div class="page" id="page-db-query">
+      <div class="section-title">💻 SQL Query Runner</div>
+      <div class="section-sub">Write and execute SQL-style queries against the in-memory database</div>
+      <div class="panel full" style="margin-bottom:16px;">
+        <div class="panel-header">
+          <div class="panel-title">Query Editor</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="loadSampleQuery('select')">SELECT</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadSampleQuery('where')">WHERE</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadSampleQuery('join')">JOIN</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadSampleQuery('groupby')">GROUP BY</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadSampleQuery('orderby')">ORDER BY</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="sql-editor-wrap">
+            <textarea class="sql-editor" id="sql-editor" spellcheck="false" placeholder="-- Write your SQL query here
+-- Example: SELECT * FROM drivers WHERE status = 'Available'
+
+SELECT * FROM customers;"></textarea>
+          </div>
+          <div class="sql-toolbar">
+            <button class="btn btn-primary" onclick="runQuery()">▶ Run Query</button>
+            <button class="btn btn-ghost" onclick="clearQuery()">Clear</button>
+            <button class="btn btn-warning btn-sm" onclick="explainQuery()">⚡ EXPLAIN</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel full">
+        <div class="panel-header">
+          <div class="panel-title">Query Results</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="result-badge" id="query-row-badge">—</span>
+            <span class="result-time" id="query-time">—</span>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="query-result-area">
+            <div class="empty"><div class="empty-icon">💻</div><p>Run a query to see results</p></div>
+          </div>
+        </div>
+      </div>
+      <!-- Saved Queries -->
+      <div class="panel full">
+        <div class="panel-header"><div class="panel-title">📌 Saved Queries</div></div>
+        <div class="panel-body">
+          <div id="saved-queries-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ERD / RELATIONSHIPS ===== -->
+    <div class="page" id="page-db-relations">
+      <div class="section-title">🔗 Entity Relationship Diagram (ERD)</div>
+      <div class="section-sub">Visual relationships between all database tables</div>
+      <div class="panel full" style="margin-bottom:16px;">
+        <div class="panel-header"><div class="panel-title">ERD — CabCore Schema</div></div>
+        <div class="panel-body">
+          <div class="erd-container" id="erd-container"></div>
+        </div>
+      </div>
+      <div class="panel full">
+        <div class="panel-header"><div class="panel-title">Relationship Details</div></div>
+        <div class="panel-body">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Parent Table</th><th>PK Column</th><th>Child Table</th><th>FK Column</th><th>Relationship</th><th>On Delete</th></tr></thead>
+              <tbody>
+                <tr><td class="cell-id">customers</td><td><span class="col-pk col-name">customer_id</span></td><td class="cell-id">bookings</td><td><span class="col-fk col-name">customer_id</span></td><td><span class="rel-badge">1 → N</span></td><td><span class="tag tag-yellow">RESTRICT</span></td></tr>
+                <tr><td class="cell-id">drivers</td><td><span class="col-pk col-name">driver_id</span></td><td class="cell-id">bookings</td><td><span class="col-fk col-name">driver_id</span></td><td><span class="rel-badge">1 → N</span></td><td><span class="tag tag-yellow">SET NULL</span></td></tr>
+                <tr><td class="cell-id">vehicles</td><td><span class="col-pk col-name">vehicle_id</span></td><td class="cell-id">drivers</td><td><span class="col-fk col-name">vehicle_id</span></td><td><span class="rel-badge">1 → 1</span></td><td><span class="tag tag-yellow">SET NULL</span></td></tr>
+                <tr><td class="cell-id">bookings</td><td><span class="col-pk col-name">booking_id</span></td><td class="cell-id">trips</td><td><span class="col-fk col-name">booking_id</span></td><td><span class="rel-badge">1 → 1</span></td><td><span class="tag tag-red">CASCADE</span></td></tr>
+                <tr><td class="cell-id">bookings</td><td><span class="col-pk col-name">booking_id</span></td><td class="cell-id">invoices</td><td><span class="col-fk col-name">booking_id</span></td><td><span class="rel-badge">1 → 1</span></td><td><span class="tag tag-yellow">RESTRICT</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- Normalization -->
+      <div class="panel full">
+        <div class="panel-header"><div class="panel-title">📐 Normalization Forms Applied</div></div>
+        <div class="panel-body">
+          <div class="stats-grid">
+            <div class="stat-card green" style="padding:14px;"><div class="stat-label" style="font-size:10px;">1NF — First Normal Form</div><div style="font-size:13px;color:var(--text2);margin-top:8px;">All columns are atomic. No repeating groups. Each cell has a single value.</div></div>
+            <div class="stat-card blue" style="padding:14px;"><div class="stat-label" style="font-size:10px;">2NF — Second Normal Form</div><div style="font-size:13px;color:var(--text2);margin-top:8px;">No partial dependencies. Every non-key column depends on the full primary key.</div></div>
+            <div class="stat-card purple" style="padding:14px;"><div class="stat-label" style="font-size:10px;">3NF — Third Normal Form</div><div style="font-size:13px;color:var(--text2);margin-top:8px;">No transitive dependencies. Customer data stored once in customers table.</div></div>
+            <div class="stat-card yellow" style="padding:14px;"><div class="stat-label" style="font-size:10px;">BCNF — Boyce-Codd</div><div style="font-size:13px;color:var(--text2);margin-top:8px;">Every determinant is a candidate key. Schema fully satisfies BCNF requirements.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== INDEXES ===== -->
+    <div class="page" id="page-db-indexes">
+      <div class="section-title">⚡ Index Management</div>
+      <div class="section-sub">Manage database indexes for query performance optimization</div>
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">➕ Create Index</div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="form-group"><label>Index Name</label><input id="idx-name" placeholder="idx_driver_status"/></div>
+              <div class="form-group"><label>Table</label><select id="idx-table"><option>customers</option><option>drivers</option><option>vehicles</option><option>bookings</option><option>trips</option><option>invoices</option></select></div>
+              <div class="form-group"><label>Column(s)</label><input id="idx-col" placeholder="status, driver_id"/></div>
+              <div class="form-group"><label>Index Type</label><select id="idx-type"><option>BTREE</option><option>HASH</option><option>FULLTEXT</option></select></div>
+              <div class="form-group"><label>Unique?</label><select id="idx-unique"><option value="no">No</option><option value="yes">Yes (UNIQUE)</option></select></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="createIndex()">⚡ Create Index</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Index Stats</div></div>
+          <div class="panel-body">
+            <div class="stats-grid" style="grid-template-columns:1fr 1fr;gap:10px;margin-bottom:0;">
+              <div class="stat-card green" style="padding:12px;"><div class="stat-label" style="font-size:10px;">Total Indexes</div><div class="stat-value" style="font-size:22px;" id="idx-total">0</div></div>
+              <div class="stat-card blue" style="padding:12px;"><div class="stat-label" style="font-size:10px;">BTREE</div><div class="stat-value" style="font-size:22px;" id="idx-btree">0</div></div>
+              <div class="stat-card yellow" style="padding:12px;"><div class="stat-label" style="font-size:10px;">UNIQUE</div><div class="stat-value" style="font-size:22px;" id="idx-unique-count">0</div></div>
+              <div class="stat-card purple" style="padding:12px;"><div class="stat-label" style="font-size:10px;">FULLTEXT</div><div class="stat-value" style="font-size:22px;" id="idx-fulltext">0</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel full">
+        <div class="panel-header"><div class="panel-title">All Indexes</div></div>
+        <div class="panel-body" id="index-list-body"></div>
+      </div>
+    </div>
+
+    <!-- ===== BACKUP ===== -->
+    <div class="page" id="page-db-backup">
+      <div class="section-title">💾 Backup & Restore</div>
+      <div class="section-sub">Export, import and manage database snapshots</div>
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Create Backup</div></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="form-group"><label>Backup Name</label><input id="bkp-name" placeholder="cabcore_backup_2026"/></div>
+              <div class="form-group"><label>Type</label><select id="bkp-type"><option>Full Backup</option><option>Incremental</option><option>Schema Only</option><option>Data Only</option></select></div>
+              <div class="form-group full"><label>Notes</label><textarea id="bkp-notes" placeholder="Pre-deployment backup..."></textarea></div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="createBackup()">💾 Create Backup</button>
+              <button class="btn btn-info" onclick="exportJSON()">📤 Export JSON</button>
+              <button class="btn btn-warning" onclick="importPrompt()">📥 Import</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Backup Stats</div></div>
+          <div class="panel-body">
+            <div class="stats-grid" style="grid-template-columns:1fr 1fr;gap:10px;margin-bottom:0;">
+              <div class="stat-card green" style="padding:12px;"><div class="stat-label" style="font-size:10px;">Total Backups</div><div class="stat-value" style="font-size:22px;" id="bkp-count">0</div></div>
+              <div class="stat-card blue" style="padding:12px;"><div class="stat-label" style="font-size:10px;">Last Backup</div><div class="stat-value" style="font-size:14px;margin-top:6px;" id="bkp-last">—</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel full">
+        <div class="panel-header"><div class="panel-title">Backup History</div></div>
+        <div class="panel-body" id="backup-list-body"><div class="empty"><div class="empty-icon">💾</div><p>No backups yet. Create one above.</p></div></div>
+      </div>
+      <!-- Import area (hidden) -->
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJSON(event)"/>
+    </div>
+
+    <!-- ===== TRANSACTION LOGS ===== -->
+    <div class="page" id="page-db-logs">
+      <div class="section-title">📜 Transaction Logs</div>
+      <div class="section-sub">Full audit trail of all database operations — INSERT, UPDATE, DELETE</div>
+      <div class="stats-grid">
+        <div class="stat-card green"><div class="stat-icon">➕</div><div class="stat-label">INSERTs</div><div class="stat-value" id="log-insert">0</div></div>
+        <div class="stat-card blue"><div class="stat-icon">✏️</div><div class="stat-label">UPDATEs</div><div class="stat-value" id="log-update">0</div></div>
+        <div class="stat-card red"><div class="stat-icon">🗑️</div><div class="stat-label">DELETEs</div><div class="stat-value" id="log-delete">0</div></div>
+        <div class="stat-card yellow"><div class="stat-icon">📊</div><div class="stat-label">Total Txns</div><div class="stat-value" id="log-total">0</div></div>
+      </div>
+      <div class="panel full">
+        <div class="panel-header">
+          <div class="panel-title">Transaction Log</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select style="width:130px;padding:6px 10px;font-size:12px;" onchange="filterLogs(this.value)">
+              <option value="">All Operations</option>
+              <option value="INSERT">INSERT</option>
+              <option value="UPDATE">UPDATE</option>
+              <option value="DELETE">DELETE</option>
+              <option value="SELECT">SELECT</option>
+            </select>
+            <button class="btn btn-danger btn-sm" onclick="clearLogs()">🗑️ Clear</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Timestamp</th><th>Operation</th><th>Table</th><th>Record ID</th><th>Description</th><th>Status</th></tr></thead>
+              <tbody id="logs-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end content -->
+</div><!-- end main -->
+</div><!-- end app -->
+
+<!-- MODAL -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="modal-title">Edit</div><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modal-save-btn">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+/* ============================
+   DATABASE STORE
+============================ */
+const db = {
+  customers:[],customerCounter:1,
+  drivers:[],driverCounter:1,
+  vehicles:[],vehicleCounter:1,
+  bookings:[],bookingCounter:1,
+  trips:[],tripCounter:1,
+  bills:[],billCounter:1,
+  logs:[],logCounter:1,
+  indexes:[],indexCounter:1,
+  backups:[],backupCounter:1,
+};
+
+/* ============================
+   TRANSACTION LOG ENGINE
+============================ */
+function logTxn(op,table,recordId,desc){
+  const id='TXN'+String(db.logCounter++).padStart(4,'0');
+  const ts=new Date().toLocaleString('en-IN');
+  db.logs.unshift({id,ts,op,table,recordId,desc,status:'COMMITTED'});
+  if(db.logs.length>200) db.logs=db.logs.slice(0,200);
+  updateLogStats();
+  updateDBCounts();
+}
+function updateLogStats(){
+  document.getElementById('log-insert').textContent=db.logs.filter(l=>l.op==='INSERT').length;
+  document.getElementById('log-update').textContent=db.logs.filter(l=>l.op==='UPDATE').length;
+  document.getElementById('log-delete').textContent=db.logs.filter(l=>l.op==='DELETE').length;
+  document.getElementById('log-total').textContent=db.logs.length;
+  if(document.getElementById('db-txn-count')) document.getElementById('db-txn-count').textContent=db.logs.length;
+}
+function updateDBCounts(){
+  const total=db.customers.length+db.drivers.length+db.vehicles.length+db.bookings.length+db.trips.length+db.bills.length;
+  if(document.getElementById('db-total-records')) document.getElementById('db-total-records').textContent=total;
+  if(document.getElementById('db-record-count')) document.getElementById('db-record-count').textContent=total+' records';
+}
+function renderLogs(filter=''){
+  const tbody=document.getElementById('logs-tbody');
+  const list=filter?db.logs.filter(l=>l.op===filter):db.logs;
+  if(!list.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="empty-icon">📜</div><p>No transactions yet</p></div></td></tr>`;return;}
+  const opColors={INSERT:'tag-green',UPDATE:'tag-blue',DELETE:'tag-red',SELECT:'tag-yellow'};
+  tbody.innerHTML=list.map(l=>`<tr>
+    <td class="cell-id">${l.id}</td>
+    <td style="font-size:11px;color:var(--text2);">${l.ts}</td>
+    <td><span class="tag ${opColors[l.op]||'tag-blue'}">${l.op}</span></td>
+    <td><span class="col-name" style="font-family:'JetBrains Mono',monospace;font-size:12px;">${l.table}</span></td>
+    <td class="cell-id">${l.recordId}</td>
+    <td style="font-size:12px;color:var(--text2);">${l.desc}</td>
+    <td><span class="tag tag-green">${l.status}</span></td>
+  </tr>`).join('');
+}
+function filterLogs(v){renderLogs(v);}
+function clearLogs(){db.logs=[];db.logCounter=1;renderLogs();updateLogStats();toast('Transaction logs cleared','error');}
+
+/* ============================
+   UTILS
+============================ */
+function toast(msg,type='success'){
+  const c=document.getElementById('toast-container');
+  const t=document.createElement('div');
+  t.className=`toast ${type}`;
+  t.innerHTML=`<span>${type==='success'?'✅':'❌'}</span>${msg}`;
+  c.appendChild(t);setTimeout(()=>t.remove(),3000);
+}
+function statusTag(s){
+  const m={
+    'Available':'tag-green','On Trip':'tag-blue','Off Duty':'tag-yellow',
+    'Active':'tag-green','In Service':'tag-yellow','Inactive':'tag-red',
+    'Scheduled':'tag-blue','Completed':'tag-green','Cancelled':'tag-red','In Progress':'tag-orange',
+    'Paid':'tag-green','Pending':'tag-yellow','Partial':'tag-orange',
+    'Normal':'tag-blue','High':'tag-yellow','Emergency':'tag-red',
+    'One Way':'tag-blue','Round Trip':'tag-purple','Hourly Rental':'tag-orange','Airport Transfer':'tag-green',
+    'Sedan':'tag-blue','SUV':'tag-purple','Mini':'tag-green','Prime':'tag-orange','Auto':'tag-yellow',
+  };
+  return `<span class="tag ${m[s]||'tag-blue'}">${s}</span>`;
+}
+function showPage(page,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  el.classList.add('active');
+  const titles={dashboard:'Dashboard',drivers:'Driver Management',vehicles:'Vehicle Management',
+    bookings:'Booking Management',trips:'Trip Tracking',billing:'Billing & Payments',customers:'Customer Management',
+    'db-schema':'Schema & Tables','db-query':'SQL Query Runner','db-relations':'ERD & Relationships',
+    'db-indexes':'Index Management','db-backup':'Backup & Restore','db-logs':'Transaction Logs'};
+  document.getElementById('topbar-title').textContent=titles[page]||page;
+  if(page==='dashboard') refreshDashboard();
+  if(page==='bookings'){populateBookingDropdowns();}
+  if(page==='billing'){populateBillDropdowns();refreshBillStats();}
+  if(page==='drivers'){populateDriverVehicleDropdown();refreshDriverStats();}
+  if(page==='db-schema'){showSchemaTab('customers',document.querySelector('#schema-tabs .tab-btn'));}
+  if(page==='db-relations'){renderERD();}
+  if(page==='db-indexes'){renderIndexList();}
+  if(page==='db-logs'){renderLogs();}
+  if(page==='db-backup'){renderBackupList();}
+  if(page==='db-query'){renderSavedQueries();}
+}
+function searchTable(tbodyId,q){
+  document.querySelectorAll('#'+tbodyId+' tr').forEach(r=>{
+    r.style.display=r.textContent.toLowerCase().includes(q.toLowerCase())?'':'none';
+  });
+}
+function getDriverName(id){const d=db.drivers.find(x=>x.id===id);return d?d.name:id;}
+function getVehicleReg(id){const v=db.vehicles.find(x=>x.id===id);return v?v.reg:'-';}
+function getCustomerName(id){const c=db.customers.find(x=>x.id===id);return c?c.name:id;}
+setInterval(()=>{
+  const n=new Date();
+  if(document.getElementById('live-time'))
+    document.getElementById('live-time').textContent=n.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+},1000);
+
+/* ============================
+   CUSTOMERS
+============================ */
+function addCustomer(){
+  const name=document.getElementById('c-name').value.trim();
+  const phone=document.getElementById('c-phone').value.trim();
+  if(!name||!phone){toast('Name and Phone required','error');return;}
+  const id='CUS'+String(db.customerCounter++).padStart(3,'0');
+  db.customers.push({id,name,phone,email:document.getElementById('c-email').value.trim(),city:document.getElementById('c-city').value.trim(),address:document.getElementById('c-address').value.trim(),rides:0});
+  logTxn('INSERT','customers',id,`New customer added: ${name}`);
+  clearCustomerForm();renderCustomers();toast(`Customer ${id} added`);
+}
+function clearCustomerForm(){['c-name','c-phone','c-email','c-city','c-address'].forEach(i=>document.getElementById(i).value='');}
+function renderCustomers(){
+  const tbody=document.getElementById('customers-tbody');
+  document.getElementById('cust-total').textContent=db.customers.length;
+  document.getElementById('cust-active').textContent=db.customers.filter(c=>c.rides>0).length;
+  if(!db.customers.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="empty-icon">👥</div><p>No customers yet</p></div></td></tr>`;return;}
+  tbody.innerHTML=db.customers.map(c=>`<tr>
+    <td class="cell-id">${c.id}</td><td class="cell-name">${c.name}</td><td>${c.phone}</td>
+    <td>${c.email||'-'}</td><td>${c.city||'-'}</td>
+    <td><span class="tag tag-blue">${c.rides} rides</span></td>
+    <td><div class="actions-cell">
+      <button class="btn btn-ghost btn-sm" onclick="editCustomer('${c.id}')">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteCustomer('${c.id}')">🗑️</button>
+    </div></td></tr>`).join('');
+}
+function deleteCustomer(id){
+  const c=db.customers.find(x=>x.id===id);
+  db.customers=db.customers.filter(x=>x.id!==id);
+  logTxn('DELETE','customers',id,`Customer deleted: ${c?c.name:id}`);
+  renderCustomers();toast(`Customer ${id} deleted`,'error');
+}
+function editCustomer(id){
+  const c=db.customers.find(x=>x.id===id);if(!c)return;
+  document.getElementById('modal-title').textContent=`Edit Customer — ${c.id}`;
+  document.getElementById('modal-body').innerHTML=`<div class="form-grid">
+    <div class="form-group"><label>Name</label><input id="ec-name" value="${c.name}"/></div>
+    <div class="form-group"><label>Phone</label><input id="ec-phone" value="${c.phone}"/></div>
+    <div class="form-group"><label>Email</label><input id="ec-email" value="${c.email||''}"/></div>
+    <div class="form-group"><label>City</label><input id="ec-city" value="${c.city||''}"/></div>
+  </div>`;
+  document.getElementById('modal-save-btn').onclick=()=>{
+    c.name=document.getElementById('ec-name').value;c.phone=document.getElementById('ec-phone').value;
+    c.email=document.getElementById('ec-email').value;c.city=document.getElementById('ec-city').value;
+    logTxn('UPDATE','customers',c.id,`Customer updated: ${c.name}`);
+    renderCustomers();closeModal();toast(`Customer ${c.id} updated`);
+  };openModal();
+}
+
+/* ============================
+   VEHICLES
+============================ */
+function addVehicle(){
+  const reg=document.getElementById('v-reg').value.trim().toUpperCase();
+  const model=document.getElementById('v-model').value.trim();
+  if(!reg||!model){toast('Reg and Model required','error');return;}
+  if(db.vehicles.find(v=>v.reg===reg)){toast('Vehicle already exists','error');return;}
+  const id='VEH'+String(db.vehicleCounter++).padStart(3,'0');
+  db.vehicles.push({id,reg,model,type:document.getElementById('v-type').value,year:document.getElementById('v-year').value,color:document.getElementById('v-color').value.trim(),fuel:document.getElementById('v-fuel').value,seats:document.getElementById('v-seats').value||4,status:document.getElementById('v-status').value});
+  logTxn('INSERT','vehicles',id,`New vehicle: ${reg} — ${model}`);
+  clearVehicleForm();renderVehicles();populateDriverVehicleDropdown();toast(`Vehicle ${id} added`);
+}
+function clearVehicleForm(){['v-reg','v-model','v-year','v-color','v-seats'].forEach(i=>document.getElementById(i).value='');}
+function renderVehicles(){
+  const tbody=document.getElementById('vehicles-tbody');
+  document.getElementById('veh-active').textContent=db.vehicles.filter(v=>v.status==='Active').length;
+  document.getElementById('veh-service').textContent=db.vehicles.filter(v=>v.status==='In Service').length;
+  document.getElementById('veh-inactive').textContent=db.vehicles.filter(v=>v.status==='Inactive').length;
+  document.getElementById('veh-total').textContent=db.vehicles.length;
+  if(!db.vehicles.length){tbody.innerHTML=`<tr><td colspan="10"><div class="empty"><div class="empty-icon">🚗</div><p>No vehicles yet</p></div></td></tr>`;return;}
+  tbody.innerHTML=db.vehicles.map(v=>`<tr>
+    <td class="cell-id">${v.id}</td><td><strong>${v.reg}</strong></td><td>${v.model}</td>
+    <td>${statusTag(v.type)}</td><td>${v.year||'-'}</td><td>${v.color||'-'}</td>
+    <td>${v.fuel}</td><td>${v.seats}</td><td>${statusTag(v.status)}</td>
+    <td><div class="actions-cell">
+      <button class="btn btn-ghost btn-sm" onclick="editVehicle('${v.id}')">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteVehicle('${v.id}')">🗑️</button>
+    </div></td></tr>`).join('');
+}
+function deleteVehicle(id){
+  const v=db.vehicles.find(x=>x.id===id);
+  db.vehicles=db.vehicles.filter(x=>x.id!==id);
+  logTxn('DELETE','vehicles',id,`Vehicle deleted: ${v?v.reg:id}`);
+  renderVehicles();populateDriverVehicleDropdown();toast(`Vehicle ${id} deleted`,'error');
+}
+function editVehicle(id){
+  const v=db.vehicles.find(x=>x.id===id);if(!v)return;
+  document.getElementById('modal-title').textContent=`Edit Vehicle — ${v.id}`;
+  document.getElementById('modal-body').innerHTML=`<div class="form-grid">
+    <div class="form-group"><label>Model</label><input id="ev-model" value="${v.model}"/></div>
+    <div class="form-group"><label>Color</label><input id="ev-color" value="${v.color||''}"/></div>
+    <div class="form-group"><label>Status</label><select id="ev-status">${['Active','In Service','Inactive'].map(s=>`<option ${s===v.status?'selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="form-group"><label>Fuel</label><select id="ev-fuel">${['Petrol','Diesel','CNG','Electric'].map(s=>`<option ${s===v.fuel?'selected':''}>${s}</option>`).join('')}</select></div>
+  </div>`;
+  document.getElementById('modal-save-btn').onclick=()=>{
+    v.model=document.getElementById('ev-model').value;v.color=document.getElementById('ev-color').value;
+    v.status=document.getElementById('ev-status').value;v.fuel=document.getElementById('ev-fuel').value;
+    logTxn('UPDATE','vehicles',v.id,`Vehicle updated: ${v.reg}`);
+    renderVehicles();closeModal();toast(`Vehicle ${v.id} updated`);
+  };openModal();
+}
+
+/* ============================
+   DRIVERS
+============================ */
+function populateDriverVehicleDropdown(){
+  const sel=document.getElementById('dr-vehicle');
+  sel.innerHTML='<option value="">-- None --</option>'+db.vehicles.map(v=>`<option value="${v.id}">${v.reg} — ${v.model}</option>`).join('');
+}
+function refreshDriverStats(){
+  document.getElementById('drv-avail').textContent=db.drivers.filter(d=>d.status==='Available').length;
+  document.getElementById('drv-ontrip').textContent=db.drivers.filter(d=>d.status==='On Trip').length;
+  document.getElementById('drv-offduty').textContent=db.drivers.filter(d=>d.status==='Off Duty').length;
+  document.getElementById('drv-total').textContent=db.drivers.length;
+}
+function addDriver(){
+  const name=document.getElementById('dr-name').value.trim();
+  const phone=document.getElementById('dr-phone').value.trim();
+  const license=document.getElementById('dr-license').value.trim();
+  if(!name||!phone||!license){toast('Name, Phone and License required','error');return;}
+  const id='DRV'+String(db.driverCounter++).padStart(3,'0');
+  db.drivers.push({id,name,phone,license,exp:parseInt(document.getElementById('dr-exp').value)||0,vehicle:document.getElementById('dr-vehicle').value,status:document.getElementById('dr-status').value});
+  logTxn('INSERT','drivers',id,`New driver: ${name}`);
+  clearDriverForm();renderDrivers();refreshDriverStats();toast(`Driver ${id} added`);
+}
+function clearDriverForm(){['dr-name','dr-phone','dr-license','dr-exp'].forEach(i=>document.getElementById(i).value='');}
+function renderDrivers(){
+  const tbody=document.getElementById('drivers-tbody');
+  if(!db.drivers.length){tbody.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="empty-icon">🧑‍✈️</div><p>No drivers yet</p></div></td></tr>`;refreshDriverStats();return;}
+  tbody.innerHTML=db.drivers.map(d=>`<tr>
+    <td class="cell-id">${d.id}</td><td class="cell-name">${d.name}</td><td>${d.phone}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--yellow);">${d.license}</td>
+    <td>${d.exp} yrs</td>
+    <td>${d.vehicle?getVehicleReg(d.vehicle):'<span style="color:var(--text3)">—</span>'}</td>
+    <td>${statusTag(d.status)}</td>
+    <td><div class="actions-cell">
+      <button class="btn btn-ghost btn-sm" onclick="editDriver('${d.id}')">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteDriver('${d.id}')">🗑️</button>
+    </div></td></tr>`).join('');
+  refreshDriverStats();
+}
+function deleteDriver(id){
+  const d=db.drivers.find(x=>x.id===id);
+  db.drivers=db.drivers.filter(x=>x.id!==id);
+  logTxn('DELETE','drivers',id,`Driver deleted: ${d?d.name:id}`);
+  renderDrivers();toast(`Driver ${id} deleted`,'error');
+}
+function editDriver(id){
+  const d=db.drivers.find(x=>x.id===id);if(!d)return;
+  document.getElementById('modal-title').textContent=`Edit Driver — ${d.id}`;
+  document.getElementById('modal-body').innerHTML=`<div class="form-grid">
+    <div class="form-group"><label>Name</label><input id="ed-name" value="${d.name}"/></div>
+    <div class="form-group"><label>Phone</label><input id="ed-phone" value="${d.phone}"/></div>
+    <div class="form-group"><label>Experience</label><input type="number" id="ed-exp" value="${d.exp}"/></div>
+    <div class="form-group"><label>Status</label><select id="ed-status">${['Available','On Trip','Off Duty'].map(s=>`<option ${s===d.status?'selected':''}>${s}</option>`).join('')}</select></div>
+  </div>`;
+  document.getElementById('modal-save-btn').onclick=()=>{
+    d.name=document.getElementById('ed-name').value;d.phone=document.getElementById('ed-phone').value;
+    d.exp=parseInt(document.getElementById('ed-exp').value)||0;d.status=document.getElementById('ed-status').value;
+    logTxn('UPDATE','drivers',d.id,`Driver updated: ${d.name}`);
+    renderDrivers();closeModal();toast(`Driver ${d.id} updated`);
+  };openModal();
+}
+
+/* ============================
+   BOOKINGS
+============================ */
+function populateBookingDropdowns(){
+  document.getElementById('b-customer').innerHTML='<option value="">-- Select --</option>'+db.customers.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  document.getElementById('b-driver').innerHTML='<option value="">-- Select --</option>'+db.drivers.map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
+}
+function addBooking(){
+  const custId=document.getElementById('b-customer').value;
+  const from=document.getElementById('b-from').value.trim();
+  const to=document.getElementById('b-to').value.trim();
+  const date=document.getElementById('b-date').value;
+  const time=document.getElementById('b-time').value;
+  if(!custId||!from||!to||!date||!time){toast('Customer, route, date and time required','error');return;}
+  const id='BK'+String(db.bookingCounter++).padStart(3,'0');
+  const drvId=document.getElementById('b-driver').value;
+  const fare=parseFloat(document.getElementById('b-fare').value)||0;
+  db.bookings.push({id,custId,drvId,from,to,date,time,type:document.getElementById('b-type').value,dist:document.getElementById('b-dist').value||0,fare,priority:document.getElementById('b-priority').value,status:'Scheduled'});
+  const c=db.customers.find(x=>x.id===custId);if(c)c.rides++;
+  logTxn('INSERT','bookings',id,`New booking: ${from} → ${to} for ${getCustomerName(custId)}`);
+  clearBookingForm();renderBookings();toast(`Booking ${id} created`);
+}
+function clearBookingForm(){['b-from','b-to','b-date','b-time','b-dist','b-fare'].forEach(i=>document.getElementById(i).value='');}
+function renderBookings(){
+  const tbody=document.getElementById('bookings-tbody');
+  if(!db.bookings.length){tbody.innerHTML=`<tr><td colspan="10"><div class="empty"><div class="empty-icon">📋</div><p>No bookings yet</p></div></td></tr>`;return;}
+  tbody.innerHTML=db.bookings.map(b=>`<tr>
+    <td class="cell-id">${b.id}</td><td>${getCustomerName(b.custId)}</td>
+    <td>${b.drvId?getDriverName(b.drvId):'<span style="color:var(--text3)">—</span>'}</td>
+    <td style="font-size:12px;">${b.from}</td><td style="font-size:12px;">${b.to}</td>
+    <td>${b.date}</td><td><strong style="color:var(--accent)">₹${b.fare}</strong></td>
+    <td>${statusTag(b.type)}</td><td>${statusTag(b.status)}</td>
+    <td><div class="actions-cell">
+      <button class="btn btn-success btn-sm" onclick="startTrip('${b.id}')" title="Start">▶</button>
+      <button class="btn btn-info btn-sm" onclick="completeBooking('${b.id}')" title="Complete">✔</button>
+      <button class="btn btn-danger btn-sm" onclick="cancelBooking('${b.id}')">✕</button>
+    </div></td></tr>`).join('');
+}
+function completeBooking(id){
+  const b=db.bookings.find(x=>x.id===id);if(b)b.status='Completed';
+  logTxn('UPDATE','bookings',id,`Booking completed`);
+  renderBookings();toast(`Booking ${id} completed`);
+}
+function cancelBooking(id){
+  const b=db.bookings.find(x=>x.id===id);if(b)b.status='Cancelled';
+  logTxn('UPDATE','bookings',id,`Booking cancelled`);
+  renderBookings();toast(`Booking ${id} cancelled`,'error');
+}
+function startTrip(bid){
+  const b=db.bookings.find(x=>x.id===bid);
+  if(!b){toast('Booking not found','error');return;}
+  if(b.status==='Cancelled'){toast('Cannot start cancelled booking','error');return;}
+  b.status='In Progress';
+  const tid='TR'+String(db.tripCounter++).padStart(3,'0');
+  const now=new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  db.trips.push({id:tid,bookingId:bid,drvId:b.drvId,custId:b.custId,start:now,end:'—',dist:b.dist,duration:'Active',status:'In Progress'});
+  logTxn('INSERT','trips',tid,`Trip started for booking ${bid}`);
+  logTxn('UPDATE','bookings',bid,`Status changed to In Progress`);
+  renderBookings();renderTrips();toast(`Trip ${tid} started`);
+}
+
+/* ============================
+   TRIPS
+============================ */
+function renderTrips(){
+  const tbody=document.getElementById('trips-tbody');
+  if(!db.trips.length){tbody.innerHTML=`<tr><td colspan="10"><div class="empty"><div class="empty-icon">🗺️</div><p>No trips yet</p></div></td></tr>`;return;}
+  tbody.innerHTML=db.trips.map(t=>`<tr>
+    <td class="cell-id">${t.id}</td><td class="cell-id">${t.bookingId}</td>
+    <td>${t.drvId?getDriverName(t.drvId):'-'}</td><td>${t.custId?getCustomerName(t.custId):'-'}</td>
+    <td>${t.start}</td><td>${t.end}</td><td>${t.dist} km</td><td>${t.duration}</td>
+    <td>${statusTag(t.status)}</td>
+    <td><button class="btn btn-success btn-sm" onclick="endTrip('${t.id}')">🏁 End</button></td>
+  </tr>`).join('');
+}
+function endTrip(id){
+  const t=db.trips.find(x=>x.id===id);if(!t)return;
+  t.end=new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  t.status='Completed';t.duration=Math.floor(Math.random()*50+10)+' mins';
+  const b=db.bookings.find(x=>x.id===t.bookingId);if(b)b.status='Completed';
+  logTxn('UPDATE','trips',id,`Trip ended`);
+  renderTrips();renderBookings();toast(`Trip ${id} ended`);
+}
+
+/* ============================
+   BILLING
+============================ */
+function populateBillDropdowns(){
+  document.getElementById('bill-booking').innerHTML='<option value="">-- Select --</option>'+
+    db.bookings.map(b=>`<option value="${b.id}">${b.id} | ${getCustomerName(b.custId)} | ₹${b.fare}</option>`).join('');
+}
+function addBill(){
+  const amount=parseFloat(document.getElementById('bill-amount').value)||0;
+  if(!amount){toast('Amount required','error');return;}
+  const tax=parseFloat(document.getElementById('bill-tax').value)||0;
+  const discount=parseFloat(document.getElementById('bill-discount').value)||0;
+  const total=amount+tax-discount;
+  const id='INV'+String(db.billCounter++).padStart(3,'0');
+  db.bills.push({id,bookingId:document.getElementById('bill-booking').value,amount,tax,discount,total,mode:document.getElementById('bill-mode').value,status:document.getElementById('bill-status').value,date:new Date().toISOString().split('T')[0]});
+  logTxn('INSERT','invoices',id,`Invoice generated: ₹${total}`);
+  clearBillForm();renderBills();refreshBillStats();toast(`Invoice ${id} created — ₹${total}`);
+}
+function clearBillForm(){['bill-amount','bill-tax','bill-discount'].forEach(i=>document.getElementById(i).value='');}
+function refreshBillStats(){
+  const paid=db.bills.filter(b=>b.status==='Paid').reduce((s,b)=>s+b.total,0);
+  const pend=db.bills.filter(b=>b.status==='Pending').reduce((s,b)=>s+b.total,0);
+  const total=db.bills.reduce((s,b)=>s+b.total,0);
+  document.getElementById('bill-paid-amt').textContent='₹'+paid.toLocaleString();
+  document.getElementById('bill-pending-amt').textContent='₹'+pend.toLocaleString();
+  document.getElementById('bill-count').textContent=db.bills.length;
+  document.getElementById('bill-total-amt').textContent='₹'+total.toLocaleString();
+}
+function renderBills(){
+  const tbody=document.getElementById('bills-tbody');
+  if(!db.bills.length){tbody.innerHTML=`<tr><td colspan="10"><div class="empty"><div class="empty-icon">💰</div><p>No invoices yet</p></div></td></tr>`;return;}
+  tbody.innerHTML=db.bills.map(b=>`<tr>
+    <td class="cell-id">${b.id}</td><td class="cell-id">${b.bookingId||'-'}</td>
+    <td>₹${b.amount}</td><td>₹${b.tax}</td><td>₹${b.discount}</td>
+    <td><strong style="color:var(--accent)">₹${b.total}</strong></td>
+    <td>${b.mode}</td><td>${statusTag(b.status)}</td><td>${b.date}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="deleteBill('${b.id}')">🗑️</button></td>
+  </tr>`).join('');
+  refreshBillStats();
+}
+function deleteBill(id){
+  db.bills=db.bills.filter(b=>b.id!==id);
+  logTxn('DELETE','invoices',id,`Invoice deleted`);
+  renderBills();toast(`Invoice ${id} deleted`,'error');
+}
+
+/* ============================
+   DASHBOARD
+============================ */
+function refreshDashboard(){
+  document.getElementById('stat-drivers').textContent=db.drivers.length;
+  document.getElementById('stat-vehicles').textContent=db.vehicles.length;
+  document.getElementById('stat-bookings').textContent=db.bookings.length;
+  const rev=db.bills.filter(b=>b.status==='Paid').reduce((s,b)=>s+b.total,0);
+  document.getElementById('stat-revenue').textContent='₹'+rev.toLocaleString();
+  document.getElementById('dash-bookings-tbody').innerHTML=db.bookings.slice(-4).reverse().map(b=>`<tr>
+    <td class="cell-id">${b.id}</td><td>${getCustomerName(b.custId)}</td>
+    <td style="font-size:11px;">${b.from}→${b.to}</td><td>${statusTag(b.status)}</td>
+  </tr>`).join('')||`<tr><td colspan="4"><div class="empty"><p>No bookings</p></div></td></tr>`;
+  document.getElementById('dash-drivers-tbody').innerHTML=db.drivers.slice(-4).reverse().map(d=>`<tr>
+    <td class="cell-id">${d.id}</td><td>${d.name}</td>
+    <td>${d.vehicle?getVehicleReg(d.vehicle):'—'}</td><td>${statusTag(d.status)}</td>
+  </tr>`).join('')||`<tr><td colspan="4"><div class="empty"><p>No drivers</p></div></td></tr>`;
+  updateDBCounts();
+}
+
+/* ============================
+   DB SCHEMA MODULE
+============================ */
+const schemaDefinitions = {
+  customers:{
+    rows:()=>db.customers.length,
+    cols:[
+      {n:1,name:'customer_id',type:'VARCHAR(10)',key:'PK',nullable:'NOT NULL',def:'auto',desc:'Unique customer identifier'},
+      {n:2,name:'name',type:'VARCHAR(100)',key:'',nullable:'NOT NULL',def:'—',desc:'Full name of customer'},
+      {n:3,name:'phone',type:'VARCHAR(15)',key:'IDX',nullable:'NOT NULL',def:'—',desc:'Contact phone number'},
+      {n:4,name:'email',type:'VARCHAR(100)',key:'',nullable:'NULL',def:'NULL',desc:'Email address'},
+      {n:5,name:'city',type:'VARCHAR(50)',key:'',nullable:'NULL',def:'NULL',desc:'City of residence'},
+      {n:6,name:'address',type:'TEXT',key:'',nullable:'NULL',def:'NULL',desc:'Full address'},
+      {n:7,name:'rides',type:'INT',key:'',nullable:'NOT NULL',def:'0',desc:'Total rides taken'},
+    ],
+    ddl:`CREATE TABLE customers (
+  customer_id  VARCHAR(10)  PRIMARY KEY,
+  name         VARCHAR(100) NOT NULL,
+  phone        VARCHAR(15)  NOT NULL,
+  email        VARCHAR(100) NULL,
+  city         VARCHAR(50)  NULL,
+  address      TEXT         NULL,
+  rides        INT          NOT NULL DEFAULT 0,
+  INDEX idx_customer_phone (phone)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`
+  },
+  drivers:{
+    rows:()=>db.drivers.length,
+    cols:[
+      {n:1,name:'driver_id',type:'VARCHAR(10)',key:'PK',nullable:'NOT NULL',def:'auto',desc:'Unique driver identifier'},
+      {n:2,name:'name',type:'VARCHAR(100)',key:'',nullable:'NOT NULL',def:'—',desc:'Driver full name'},
+      {n:3,name:'phone',type:'VARCHAR(15)',key:'',nullable:'NOT NULL',def:'—',desc:'Phone number'},
+      {n:4,name:'license',type:'VARCHAR(30)',key:'UNI',nullable:'NOT NULL',def:'—',desc:'License number (unique)'},
+      {n:5,name:'exp',type:'INT',key:'',nullable:'NOT NULL',def:'0',desc:'Years of experience'},
+      {n:6,name:'vehicle_id',type:'VARCHAR(10)',key:'FK',nullable:'NULL',def:'NULL',desc:'FK → vehicles.vehicle_id'},
+      {n:7,name:'status',type:"ENUM('Available','On Trip','Off Duty')",key:'IDX',nullable:'NOT NULL',def:'Available',desc:'Current availability'},
+    ],
+    ddl:`CREATE TABLE drivers (
+  driver_id    VARCHAR(10)  PRIMARY KEY,
+  name         VARCHAR(100) NOT NULL,
+  phone        VARCHAR(15)  NOT NULL,
+  license      VARCHAR(30)  NOT NULL UNIQUE,
+  exp          INT          NOT NULL DEFAULT 0,
+  vehicle_id   VARCHAR(10)  NULL,
+  status       ENUM('Available','On Trip','Off Duty') NOT NULL DEFAULT 'Available',
+  FOREIGN KEY (vehicle_id) REFERENCES vehicles(vehicle_id) ON DELETE SET NULL,
+  INDEX idx_driver_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`
+  },
+  vehicles:{
+    rows:()=>db.vehicles.length,
+    cols:[
+      {n:1,name:'vehicle_id',type:'VARCHAR(10)',key:'PK',nullable:'NOT NULL',def:'auto',desc:'Unique vehicle identifier'},
+      {n:2,name:'reg',type:'VARCHAR(15)',key:'UNI',nullable:'NOT NULL',def:'—',desc:'Registration number (unique)'},
+      {n:3,name:'model',type:'VARCHAR(100)',key:'',nullable:'NOT NULL',def:'—',desc:'Make and model'},
+      {n:4,name:'type',type:"ENUM('Sedan','SUV','Mini','Prime','Auto')",key:'IDX',nullable:'NOT NULL',def:'Sedan',desc:'Vehicle category'},
+      {n:5,name:'year',type:'YEAR',key:'',nullable:'NULL',def:'NULL',desc:'Manufacturing year'},
+      {n:6,name:'color',type:'VARCHAR(30)',key:'',nullable:'NULL',def:'NULL',desc:'Vehicle color'},
+      {n:7,name:'fuel',type:"ENUM('Petrol','Diesel','CNG','Electric')",key:'',nullable:'NOT NULL',def:'Petrol',desc:'Fuel type'},
+      {n:8,name:'seats',type:'TINYINT',key:'',nullable:'NOT NULL',def:'4',desc:'Seating capacity'},
+      {n:9,name:'status',type:"ENUM('Active','In Service','Inactive')",key:'IDX',nullable:'NOT NULL',def:'Active',desc:'Operational status'},
+    ],
+    ddl:`CREATE TABLE vehicles (
+  vehicle_id   VARCHAR(10)  PRIMARY KEY,
+  reg          VARCHAR(15)  NOT NULL UNIQUE,
+  model        VARCHAR(100) NOT NULL,
+  type         ENUM('Sedan','SUV','Mini','Prime','Auto') NOT NULL DEFAULT 'Sedan',
+  year         YEAR         NULL,
+  color        VARCHAR(30)  NULL,
+  fuel         ENUM('Petrol','Diesel','CNG','Electric') NOT NULL DEFAULT 'Petrol',
+  seats        TINYINT      NOT NULL DEFAULT 4,
+  status       ENUM('Active','In Service','Inactive') NOT NULL DEFAULT 'Active',
+  INDEX idx_vehicle_status (status),
+  INDEX idx_vehicle_type   (type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`
+  },
+  bookings:{
+    rows:()=>db.bookings.length,
+    cols:[
+      {n:1,name:'booking_id',type:'VARCHAR(10)',key:'PK',nullable:'NOT NULL',def:'auto',desc:'Unique booking identifier'},
+      {n:2,name:'customer_id',type:'VARCHAR(10)',key:'FK',nullable:'NOT NULL',def:'—',desc:'FK → customers.customer_id'},
+      {n:3,name:'driver_id',type:'VARCHAR(10)',key:'FK',nullable:'NULL',def:'NULL',desc:'FK → drivers.driver_id'},
+      {n:4,name:'from_loc',type:'VARCHAR(200)',key:'',nullable:'NOT NULL',def:'—',desc:'Pickup location'},
+      {n:5,name:'to_loc',type:'VARCHAR(200)',key:'',nullable:'NOT NULL',def:'—',desc:'Drop location'},
+      {n:6,name:'date',type:'DATE',key:'IDX',nullable:'NOT NULL',def:'—',desc:'Booking date'},
+      {n:7,name:'time',type:'TIME',key:'',nullable:'NOT NULL',def:'—',desc:'Pickup time'},
+      {n:8,name:'type',type:"ENUM('One Way','Round Trip','Hourly Rental','Airport Transfer')",key:'',nullable:'NOT NULL',def:'One Way',desc:'Ride type'},
+      {n:9,name:'fare',type:'DECIMAL(10,2)',key:'',nullable:'NOT NULL',def:'0.00',desc:'Booking fare'},
+      {n:10,name:'status',type:"ENUM('Scheduled','In Progress','Completed','Cancelled')",key:'IDX',nullable:'NOT NULL',def:'Scheduled',desc:'Booking status'},
+    ],
+    ddl:`CREATE TABLE bookings (
+  booking_id   VARCHAR(10)   PRIMARY KEY,
+  customer_id  VARCHAR(10)   NOT NULL,
+  driver_id    VARCHAR(10)   NULL,
+  from_loc     VARCHAR(200)  NOT NULL,
+  to_loc       VARCHAR(200)  NOT NULL,
+  date         DATE          NOT NULL,
+  time         TIME          NOT NULL,
+  type         ENUM('One Way','Round Trip','Hourly Rental','Airport Transfer') NOT NULL DEFAULT 'One Way',
+  fare         DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  status       ENUM('Scheduled','In Progress','Completed','Cancelled') NOT NULL DEFAULT 'Scheduled',
+  FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE RESTRICT,
+  FOREIGN KEY (driver_id)   REFERENCES drivers(driver_id)    ON DELETE SET NULL,
+  INDEX idx_booking_date   (date),
+  INDEX idx_booking_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`
+  },
+  trips:{
+    rows:()=>db.trips.length,
+    cols:[
+      {n:1,name:'trip_id',type:'VARCHAR(10)',key:'PK',nullable:'NOT NULL',def:'auto',desc:'Unique trip identifier'},
+      {n:2,name:'booking_id',type:'VARCHAR(10)',key:'FK',nullable:'NOT NULL',def:'—',desc:'FK → bookings.booking_id'},
+      {n:3,name:'driver_id',type:'VARCHAR(10)',key:'FK',nullable:'NULL',def:'NULL',desc:'FK → drivers.driver_id'},
+      {n:4,name:'customer_id',type:'VARCHAR(10)',key:'FK',nullable:'NULL',def:'NULL',desc:'FK → customers.customer_id'},
+      {n:5,name:'start_time',type:'TIME',key:'',nullable:'NOT NULL',def:'—',desc:'Trip start time'},
+      {n:6,name:'end_time',type:'TIME',key:'',nullable:'NULL',def:'NULL',desc:'Trip end time'},
+      {n:7,name:'distance_km',type:'DECIMAL(6,2)',key:'',nullable:'NOT NULL',def:'0',desc:'Distance in kilometres'},
+      {n:8,name:'duration',type:'VARCHAR(20)',key:'',nullable:'NULL',def:'NULL',desc:'Trip duration string'},
+      {n:9,name:'status',type:"ENUM('In Progress','Completed','Cancelled')",key:'IDX',nullable:'NOT NULL',def:'In Progress',desc:'Trip status'},
+    ],
+    ddl:`CREATE TABLE trips (
+  trip_id      VARCHAR(10)   PRIMARY KEY,
+  booking_id   VARCHAR(10)   NOT NULL UNIQUE,
+  driver_id    VARCHAR(10)   NULL,
+  customer_id  VARCHAR(10)   NULL,
+  start_time   TIME          NOT NULL,
+  end_time     TIME          NULL,
+  distance_km  DECIMAL(6,2)  NOT NULL DEFAULT 0,
+  duration     VARCHAR(20)   NULL,
+  status       ENUM('In Progress','Completed','Cancelled') NOT NULL DEFAULT 'In Progress',
+  FOREIGN KEY (booking_id)  REFERENCES bookings(booking_id)  ON DELETE CASCADE,
+  FOREIGN KEY (driver_id)   REFERENCES drivers(driver_id)    ON DELETE SET NULL,
+  FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE SET NULL,
+  INDEX idx_trip_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`
+  },
+  invoices:{
+    rows:()=>db.bills.length,
+    cols:[
+      {n:1,name:'invoice_id',type:'VARCHAR(10)',key:'PK',nullable:'NOT NULL',def:'auto',desc:'Unique invoice identifier'},
+      {n:2,name:'booking_id',type:'VARCHAR(10)',key:'FK',nullable:'NULL',def:'NULL',desc:'FK → bookings.booking_id'},
+      {n:3,name:'amount',type:'DECIMAL(10,2)',key:'',nullable:'NOT NULL',def:'0.00',desc:'Base amount'},
+      {n:4,name:'tax',type:'DECIMAL(10,2)',key:'',nullable:'NOT NULL',def:'0.00',desc:'Tax applied'},
+      {n:5,name:'discount',type:'DECIMAL(10,2)',key:'',nullable:'NOT NULL',def:'0.00',desc:'Discount applied'},
+      {n:6,name:'total',type:'DECIMAL(10,2)',key:'',nullable:'NOT NULL',def:'0.00',desc:'Final payable amount'},
+      {n:7,name:'payment_mode',type:"ENUM('Cash','UPI','Card','Wallet')",key:'',nullable:'NOT NULL',def:'Cash',desc:'Mode of payment'},
+      {n:8,name:'status',type:"ENUM('Paid','Pending','Partial')",key:'IDX',nullable:'NOT NULL',def:'Pending',desc:'Payment status'},
+      {n:9,name:'date',type:'DATE',key:'IDX',nullable:'NOT NULL',def:'CURRENT_DATE',desc:'Invoice date'},
+    ],
+    ddl:`CREATE TABLE invoices (
+  invoice_id   VARCHAR(10)   PRIMARY KEY,
+  booking_id   VARCHAR(10)   NULL,
+  amount       DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  tax          DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  discount     DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  total        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  payment_mode ENUM('Cash','UPI','Card','Wallet') NOT NULL DEFAULT 'Cash',
+  status       ENUM('Paid','Pending','Partial') NOT NULL DEFAULT 'Pending',
+  date         DATE          NOT NULL DEFAULT (CURRENT_DATE),
+  FOREIGN KEY (booking_id) REFERENCES bookings(booking_id) ON DELETE RESTRICT,
+  INDEX idx_invoice_status (status),
+  INDEX idx_invoice_date   (date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`
+  },
+};
+function showSchemaTab(tbl,el){
+  document.querySelectorAll('#schema-tabs .tab-btn').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  const s=schemaDefinitions[tbl];if(!s)return;
+  document.getElementById('schema-table-title').textContent=`Table: ${tbl}`;
+  document.getElementById('schema-row-count').textContent=s.rows()+' rows';
+  document.getElementById('schema-data-title').textContent=`Live Data — ${tbl}`;
+  const keyBadge=(k)=>{
+    if(k==='PK') return `<span class="col-pk">🔑 PK</span>`;
+    if(k==='FK') return `<span class="col-fk">🔗 FK</span>`;
+    if(k==='UNI') return `<span style="color:var(--orange);font-size:10px;">UNI</span>`;
+    if(k==='IDX') return `<span style="color:var(--blue);font-size:10px;">IDX</span>`;
+    return '<span style="color:var(--text3);font-size:10px;">—</span>';
+  };
+  document.getElementById('schema-cols-tbody').innerHTML=s.cols.map(c=>`<tr>
+    <td style="color:var(--text3);font-size:11px;">${c.n}</td>
+    <td class="col-name">${c.name}</td>
+    <td class="col-type">${c.type}</td>
+    <td>${keyBadge(c.key)}</td>
+    <td class="col-null">${c.nullable}</td>
+    <td style="color:var(--text3);font-size:11px;">${c.def}</td>
+    <td style="color:var(--text2);font-size:12px;">${c.desc}</td>
+  </tr>`).join('');
+  document.getElementById('schema-ddl').textContent=s.ddl;
+  renderSchemaLiveData(tbl);
+}
+function renderSchemaLiveData(tbl){
+  const data={customers:db.customers,drivers:db.drivers,vehicles:db.vehicles,bookings:db.bookings,trips:db.trips,invoices:db.bills}[tbl]||[];
+  document.getElementById('schema-data-badge').textContent=data.length+' rows';
+  if(!data.length){document.getElementById('schema-live-data').innerHTML=`<div class="empty"><p>No data in table</p></div>`;return;}
+  const keys=Object.keys(data[0]);
+  document.getElementById('schema-live-data').innerHTML=`<table>
+    <thead><tr>${keys.map(k=>`<th>${k}</th>`).join('')}</tr></thead>
+    <tbody>${data.slice(0,10).map(row=>`<tr>${keys.map(k=>`<td style="font-family:'JetBrains Mono',monospace;font-size:11px;">${row[k]??'NULL'}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table>${data.length>10?`<div style="font-size:11px;color:var(--text3);margin-top:8px;">Showing 10 of ${data.length} rows</div>`:''}`;
+}
+
+/* ============================
+   SQL QUERY RUNNER
+============================ */
+const tables={customers:()=>db.customers,drivers:()=>db.drivers,vehicles:()=>db.vehicles,bookings:()=>db.bookings,trips:()=>db.trips,invoices:()=>db.bills};
+const sampleQueries={
+  select:'SELECT * FROM customers;',
+  where:"SELECT * FROM drivers WHERE status = 'Available';",
+  join:'SELECT bookings.booking_id, customers.name, drivers.name AS driver\nFROM bookings\nJOIN customers ON bookings.custId = customers.id\nJOIN drivers ON bookings.drvId = drivers.id;',
+  groupby:'SELECT status, COUNT(*) AS count FROM drivers GROUP BY status;',
+  orderby:'SELECT * FROM bookings ORDER BY fare DESC;',
+};
+function loadSampleQuery(type){document.getElementById('sql-editor').value=sampleQueries[type];}
+function clearQuery(){document.getElementById('sql-editor').value='';}
+
+const savedQueries=[
+  {name:'All Available Drivers',sql:"SELECT * FROM drivers WHERE status = 'Available';"},
+  {name:'Revenue by Payment Mode',sql:'SELECT payment_mode, SUM(total) AS revenue FROM invoices GROUP BY payment_mode;'},
+  {name:'Top Customers by Rides',sql:'SELECT name, phone, rides FROM customers ORDER BY rides DESC LIMIT 5;'},
+  {name:'Active Vehicles',sql:"SELECT reg, model, type, fuel FROM vehicles WHERE status = 'Active';"},
+  {name:'Completed Bookings',sql:"SELECT * FROM bookings WHERE status = 'Completed';"},
+];
+function renderSavedQueries(){
+  document.getElementById('saved-queries-list').innerHTML=savedQueries.map(q=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--surface2);">
+      <div>
+        <div style="font-size:13px;font-weight:500;">${q.name}</div>
+        <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text3);margin-top:3px;">${q.sql.substring(0,60)}...</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('sql-editor').value=\`${q.sql.replace(/`/g,"'")}\`">Load</button>
+    </div>`).join('');
+}
+function runQuery(){
+  const raw=document.getElementById('sql-editor').value.trim();
+  if(!raw){toast('Write a query first','error');return;}
+  const t0=performance.now();
+  let result=[];let err=null;let cols=[];
+  try{
+    const sql=raw.replace(/;$/,'').trim();
+    const upper=sql.toUpperCase();
+
+    // SELECT * FROM table
+    const selectAll=/^SELECT\s+\*\s+FROM\s+(\w+)/i.exec(sql);
+    // SELECT cols FROM table WHERE col = val
+    const selectWhere=/^SELECT\s+(.+?)\s+FROM\s+(\w+)\s+WHERE\s+(\w+)\s*=\s*'?([^']+)'?/i.exec(sql);
+    // SELECT cols FROM table ORDER BY col DESC/ASC
+    const selectOrder=/^SELECT\s+(.+?)\s+FROM\s+(\w+)\s+ORDER\s+BY\s+(\w+)(\s+DESC)?/i.exec(sql);
+    // SELECT cols FROM table GROUP BY col
+    const selectGroup=/^SELECT\s+(.+?)\s+FROM\s+(\w+)\s+GROUP\s+BY\s+(\w+)/i.exec(sql);
+    // COUNT
+    const countQ=/^SELECT\s+COUNT\(\*\)\s+FROM\s+(\w+)/i.exec(sql);
+    // LIMIT
+    const limitQ=/LIMIT\s+(\d+)/i.exec(sql);
+
+    if(countQ){
+      const tbl=countQ[1].toLowerCase();
+      const data=tables[tbl]?tables[tbl]():null;
+      if(!data)throw new Error(`Table '${tbl}' not found`);
+      result=[{'COUNT(*)':data.length}];cols=['COUNT(*)'];
+    } else if(selectGroup){
+      const tbl=selectGroup[2].toLowerCase();
+      const groupCol=selectGroup[3];
+      const data=tables[tbl]?tables[tbl]():null;
+      if(!data)throw new Error(`Table '${tbl}' not found`);
+      const groups={};
+      data.forEach(row=>{
+        const key=row[groupCol]??'NULL';
+        groups[key]=(groups[key]||0)+1;
+      });
+      result=Object.entries(groups).map(([k,v])=>({[groupCol]:k,'COUNT(*)':v}));
+      cols=[groupCol,'COUNT(*)'];
+    } else if(selectWhere){
+      const tbl=selectWhere[2].toLowerCase();
+      const col=selectWhere[3];
+      const val=selectWhere[4].trim();
+      const data=tables[tbl]?tables[tbl]():null;
+      if(!data)throw new Error(`Table '${tbl}' not found`);
+      result=data.filter(row=>String(row[col]||'').toLowerCase()===val.toLowerCase());
+      cols=result.length?Object.keys(result[0]):[];
+    } else if(selectOrder){
+      const tbl=selectOrder[2].toLowerCase();
+      const orderCol=selectOrder[3];
+      const desc=!!selectOrder[4];
+      const data=tables[tbl]?[...tables[tbl]()]:null;
+      if(!data)throw new Error(`Table '${tbl}' not found`);
+      data.sort((a,b)=>{
+        const av=isNaN(a[orderCol])?a[orderCol]:+a[orderCol];
+        const bv=isNaN(b[orderCol])?b[orderCol]:+b[orderCol];
+        return desc?(bv>av?1:-1):(av>bv?1:-1);
+      });
+      result=limitQ?data.slice(0,+limitQ[1]):data;
+      cols=result.length?Object.keys(result[0]):[];
+    } else if(selectAll){
+      const tbl=selectAll[1].toLowerCase();
+      const data=tables[tbl]?tables[tbl]():null;
+      if(!data)throw new Error(`Table '${tbl}' not found`);
+      result=limitQ?data.slice(0,+limitQ[1]):data;
+      cols=result.length?Object.keys(result[0]):[];
+    } else {
+      throw new Error('Query type not supported in this demo. Try: SELECT * FROM table, SELECT * FROM table WHERE col = value, SELECT * FROM table ORDER BY col DESC');
+    }
+  }catch(e){err=e.message;}
+
+  const elapsed=((performance.now()-t0)).toFixed(2);
+  logTxn('SELECT','query','—',raw.substring(0,60));
+
+  document.getElementById('query-time').textContent=`${elapsed}ms`;
+  if(err){
+    document.getElementById('query-row-badge').textContent='Error';
+    document.getElementById('query-result-area').innerHTML=`<div style="background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);border-radius:8px;padding:14px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--red);">❌ ${err}</div>`;
+    return;
+  }
+  document.getElementById('query-row-badge').textContent=`${result.length} rows returned`;
+  if(!result.length){
+    document.getElementById('query-result-area').innerHTML=`<div class="empty"><div class="empty-icon">📭</div><p>Query ran successfully — 0 rows returned</p></div>`;
+    return;
+  }
+  document.getElementById('query-result-area').innerHTML=`<div class="table-wrap"><table>
+    <thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+    <tbody>${result.map(row=>`<tr>${cols.map(c=>`<td style="font-family:'JetBrains Mono',monospace;font-size:12px;">${row[c]??'NULL'}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table></div>`;
+}
+function explainQuery(){
+  const sql=document.getElementById('sql-editor').value.trim()||'SELECT * FROM customers';
+  const tableMatch=/FROM\s+(\w+)/i.exec(sql);
+  const tbl=tableMatch?tableMatch[1]:'unknown';
+  document.getElementById('query-result-area').innerHTML=`
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.8;">
+      <div style="color:var(--accent);margin-bottom:10px;font-size:13px;">⚡ EXPLAIN PLAN</div>
+      <div style="color:var(--text2);">id: <span style="color:var(--text);">1</span></div>
+      <div style="color:var(--text2);">select_type: <span style="color:var(--yellow);">SIMPLE</span></div>
+      <div style="color:var(--text2);">table: <span style="color:var(--blue);">${tbl}</span></div>
+      <div style="color:var(--text2);">type: <span style="color:var(--accent);">ALL</span> (full table scan)</div>
+      <div style="color:var(--text2);">possible_keys: <span style="color:var(--text);">PRIMARY, idx_${tbl}_status</span></div>
+      <div style="color:var(--text2);">key: <span style="color:var(--orange);">NULL</span> (no index used)</div>
+      <div style="color:var(--text2);">rows: <span style="color:var(--text);">${(tables[tbl.toLowerCase()]?tables[tbl.toLowerCase()]():[]).length}</span></div>
+      <div style="color:var(--text2);">filtered: <span style="color:var(--text);">100.00</span></div>
+      <div style="color:var(--text2);">Extra: <span style="color:var(--text3);">—</span></div>
+    </div>`;
+}
+
+/* ============================
+   ERD
+============================ */
+function renderERD(){
+  const erdTables=[
+    {name:'customers',icon:'👥',cols:[{name:'customer_id',k:'pk'},{name:'name',k:''},{name:'phone',k:''},{name:'email',k:''},{name:'rides',k:''}]},
+    {name:'drivers',icon:'🧑‍✈️',cols:[{name:'driver_id',k:'pk'},{name:'name',k:''},{name:'license',k:''},{name:'vehicle_id',k:'fk'},{name:'status',k:''}]},
+    {name:'vehicles',icon:'🚗',cols:[{name:'vehicle_id',k:'pk'},{name:'reg',k:''},{name:'model',k:''},{name:'type',k:''},{name:'status',k:''}]},
+    {name:'bookings',icon:'📋',cols:[{name:'booking_id',k:'pk'},{name:'customer_id',k:'fk'},{name:'driver_id',k:'fk'},{name:'from_loc',k:''},{name:'status',k:''}]},
+    {name:'trips',icon:'🗺️',cols:[{name:'trip_id',k:'pk'},{name:'booking_id',k:'fk'},{name:'driver_id',k:'fk'},{name:'status',k:''}]},
+    {name:'invoices',icon:'💳',cols:[{name:'invoice_id',k:'pk'},{name:'booking_id',k:'fk'},{name:'total',k:''},{name:'status',k:''}]},
+  ];
+  document.getElementById('erd-container').innerHTML=erdTables.map(t=>`
+    <div class="erd-table">
+      <div class="erd-table-header">${t.icon} ${t.name}</div>
+      <div class="erd-table-body">
+        ${t.cols.map(c=>`<div class="erd-col ${c.k}">
+          ${c.k==='pk'?'🔑':c.k==='fk'?'🔗':'  '}
+          <span>${c.name}</span>
+        </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+/* ============================
+   INDEXES
+============================ */
+const defaultIndexes=[
+  {id:'IDX001',name:'PRIMARY',table:'customers',col:'customer_id',type:'BTREE',unique:'yes',built_in:true},
+  {id:'IDX002',name:'PRIMARY',table:'drivers',col:'driver_id',type:'BTREE',unique:'yes',built_in:true},
+  {id:'IDX003',name:'PRIMARY',table:'vehicles',col:'vehicle_id',type:'BTREE',unique:'yes',built_in:true},
+  {id:'IDX004',name:'PRIMARY',table:'bookings',col:'booking_id',type:'BTREE',unique:'yes',built_in:true},
+  {id:'IDX005',name:'idx_driver_status',table:'drivers',col:'status',type:'BTREE',unique:'no',built_in:true},
+  {id:'IDX006',name:'idx_booking_status',table:'bookings',col:'status',type:'BTREE',unique:'no',built_in:true},
+  {id:'IDX007',name:'idx_invoice_status',table:'invoices',col:'status',type:'BTREE',unique:'no',built_in:true},
+  {id:'IDX008',name:'idx_vehicle_reg',table:'vehicles',col:'reg',type:'BTREE',unique:'yes',built_in:true},
+];
+function createIndex(){
+  const name=document.getElementById('idx-name').value.trim();
+  const table=document.getElementById('idx-table').value;
+  const col=document.getElementById('idx-col').value.trim();
+  const type=document.getElementById('idx-type').value;
+  const unique=document.getElementById('idx-unique').value;
+  if(!name||!col){toast('Name and Column required','error');return;}
+  const id='IDX'+String(999+db.indexCounter++).padStart(3,'0');
+  db.indexes.push({id,name,table,col,type,unique,built_in:false});
+  logTxn('INSERT','indexes',id,`Index created: ${name} on ${table}(${col})`);
+  renderIndexList();toast(`Index ${name} created`);
+  document.getElementById('idx-name').value='';document.getElementById('idx-col').value='';
+}
+function renderIndexList(){
+  const all=[...defaultIndexes,...db.indexes];
+  document.getElementById('idx-total').textContent=all.length;
+  document.getElementById('idx-btree').textContent=all.filter(i=>i.type==='BTREE').length;
+  document.getElementById('idx-unique-count').textContent=all.filter(i=>i.unique==='yes').length;
+  document.getElementById('idx-fulltext').textContent=all.filter(i=>i.type==='FULLTEXT').length;
+  document.getElementById('index-list-body').innerHTML=all.map(i=>`
+    <div class="index-item">
+      <div>
+        <div class="index-name">${i.name}</div>
+        <div class="index-meta">Table: <span style="color:var(--blue);">${i.table}</span> · Column: <span style="color:var(--accent);">${i.col}</span> · ${i.type}${i.unique==='yes'?' · UNIQUE':''}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        ${i.unique==='yes'?'<span class="tag tag-green">UNIQUE</span>':''}
+        <span class="tag tag-blue">${i.type}</span>
+        ${i.built_in?'<span class="tag tag-purple">BUILT-IN</span>':'<button class="btn btn-danger btn-sm" onclick="dropIndex(\''+i.id+'\')">DROP</button>'}
+      </div>
+    </div>`).join('');
+}
+function dropIndex(id){
+  db.indexes=db.indexes.filter(i=>i.id!==id);
+  logTxn('DELETE','indexes',id,'Index dropped');
+  renderIndexList();toast('Index dropped','error');
+}
+
+/* ============================
+   BACKUP & RESTORE
+============================ */
+function createBackup(){
+  const name=document.getElementById('bkp-name').value.trim()||('backup_'+Date.now());
+  const type=document.getElementById('bkp-type').value;
+  const notes=document.getElementById('bkp-notes').value.trim();
+  const ts=new Date().toLocaleString('en-IN');
+  const totalRecs=db.customers.length+db.drivers.length+db.vehicles.length+db.bookings.length+db.trips.length+db.bills.length;
+  const id='BKP'+String(db.backupCounter++).padStart(3,'0');
+  const snapshot=JSON.stringify({customers:db.customers,drivers:db.drivers,vehicles:db.vehicles,bookings:db.bookings,trips:db.trips,bills:db.bills});
+  db.backups.push({id,name,type,notes,ts,totalRecs,size:(snapshot.length/1024).toFixed(1)+'KB',snapshot});
+  logTxn('INSERT','backups',id,`${type} backup created: ${name}`);
+  renderBackupList();toast(`Backup '${name}' created`);
+  document.getElementById('bkp-name').value='';document.getElementById('bkp-notes').value='';
+}
+function renderBackupList(){
+  const c=db.backups.length;
+  document.getElementById('bkp-count').textContent=c;
+  document.getElementById('bkp-last').textContent=c?db.backups[c-1].ts.split(',')[0]:'—';
+  if(!c){document.getElementById('backup-list-body').innerHTML=`<div class="empty"><div class="empty-icon">💾</div><p>No backups yet</p></div>`;return;}
+  document.getElementById('backup-list-body').innerHTML=db.backups.slice().reverse().map(b=>`
+    <div class="backup-item">
+      <div>
+        <div class="backup-name">💾 ${b.name}</div>
+        <div class="backup-meta">${b.ts} · ${b.type} · ${b.totalRecs} records · ${b.size}</div>
+        ${b.notes?`<div style="font-size:11px;color:var(--text3);margin-top:2px;">${b.notes}</div>`:''}
+      </div>
+      <div style="display:flex;gap:8px;">
+        <span class="tag tag-blue">${b.type}</span>
+        <button class="btn btn-success btn-sm" onclick="restoreBackup('${b.id}')">♻️ Restore</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteBackup('${b.id}')">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+function deleteBackup(id){
+  db.backups=db.backups.filter(b=>b.id!==id);
+  renderBackupList();toast('Backup deleted','error');
+}
+function restoreBackup(id){
+  const b=db.backups.find(x=>x.id===id);if(!b)return;
+  if(!confirm(`Restore backup '${b.name}'? This will overwrite current data.`))return;
+  try{
+    const snap=JSON.parse(b.snapshot);
+    db.customers=snap.customers||[];db.drivers=snap.drivers||[];
+    db.vehicles=snap.vehicles||[];db.bookings=snap.bookings||[];
+    db.trips=snap.trips||[];db.bills=snap.bills||[];
+    logTxn('UPDATE','database','ALL',`Restored from backup: ${b.name}`);
+    renderAll();toast(`Database restored from backup '${b.name}'`);
+  }catch(e){toast('Restore failed: '+e.message,'error');}
+}
+function exportJSON(){
+  const data={meta:{exported:new Date().toISOString(),version:'1.0',app:'CabCore'},tables:{customers:db.customers,drivers:db.drivers,vehicles:db.vehicles,bookings:db.bookings,trips:db.trips,invoices:db.bills}};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cabcore_export.json';a.click();
+  logTxn('SELECT','database','ALL','Full JSON export');
+  toast('Database exported as JSON');
+}
+function importPrompt(){document.getElementById('import-file').click();}
+function importJSON(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(data.tables){
+        if(data.tables.customers)db.customers=data.tables.customers;
+        if(data.tables.drivers)db.drivers=data.tables.drivers;
+        if(data.tables.vehicles)db.vehicles=data.tables.vehicles;
+        if(data.tables.bookings)db.bookings=data.tables.bookings;
+        if(data.tables.trips)db.trips=data.tables.trips;
+        if(data.tables.invoices)db.bills=data.tables.invoices;
+        logTxn('INSERT','database','ALL','JSON data imported from file: '+file.name);
+        renderAll();toast('Data imported successfully from '+file.name);
+      } else {toast('Invalid format — expected {tables:{...}}','error');}
+    }catch(err){toast('Import failed: '+err.message,'error');}
+  };reader.readAsText(file);
+}
+
+/* ============================
+   MODAL
+============================ */
+function openModal(){document.getElementById('editModal').classList.add('open');}
+function closeModal(){document.getElementById('editModal').classList.remove('open');}
+document.getElementById('editModal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+/* ============================
+   RENDER ALL
+============================ */
+function renderAll(){
+  renderCustomers();renderDrivers();renderVehicles();renderBookings();renderTrips();renderBills();updateDBCounts();
+}
+
+/* ============================
+   SEED DATA
+============================ */
+function seed(){
+  db.vehicles=[
+    {id:'VEH001',reg:'KA01AB1234',model:'Maruti Swift Dzire',type:'Sedan',year:2022,color:'White',fuel:'CNG',seats:4,status:'Active'},
+    {id:'VEH002',reg:'KA02CD5678',model:'Toyota Innova Crysta',type:'SUV',year:2021,color:'Silver',fuel:'Diesel',seats:7,status:'Active'},
+    {id:'VEH003',reg:'KA03EF9012',model:'Hyundai Santro',type:'Mini',year:2023,color:'Blue',fuel:'Petrol',seats:4,status:'In Service'},
+  ];db.vehicleCounter=4;
+  db.customers=[
+    {id:'CUS001',name:'Priya Sharma',phone:'+91 9876541230',email:'priya@email.com',city:'Bengaluru',rides:3},
+    {id:'CUS002',name:'Arjun Mehta',phone:'+91 9123456789',email:'arjun@email.com',city:'Bengaluru',rides:1},
+    {id:'CUS003',name:'Sneha Rao',phone:'+91 9988112233',email:'sneha@email.com',city:'Mysuru',rides:5},
+  ];db.customerCounter=4;
+  db.drivers=[
+    {id:'DRV001',name:'Ramesh Kumar',phone:'+91 9988776655',license:'KA01 2019012345',exp:5,vehicle:'VEH001',status:'Available'},
+    {id:'DRV002',name:'Suresh Babu',phone:'+91 9876543210',license:'KA02 2018023456',exp:7,vehicle:'VEH002',status:'On Trip'},
+  ];db.driverCounter=3;
+  db.bookings=[
+    {id:'BK001',custId:'CUS001',drvId:'DRV001',from:'Koramangala',to:'Kempegowda Airport',date:'2026-06-04',time:'08:00',type:'Airport Transfer',dist:35,fare:650,priority:'High',status:'Scheduled'},
+    {id:'BK002',custId:'CUS002',drvId:'DRV002',from:'Indiranagar',to:'Electronic City',date:'2026-06-04',time:'09:30',type:'One Way',dist:22,fare:380,priority:'Normal',status:'In Progress'},
+    {id:'BK003',custId:'CUS003',drvId:'DRV001',from:'Mysuru Bus Stand',to:'Infosys Campus',date:'2026-06-03',time:'07:00',type:'One Way',dist:18,fare:290,priority:'Normal',status:'Completed'},
+  ];db.bookingCounter=4;
+  db.trips=[{id:'TR001',bookingId:'BK002',drvId:'DRV002',custId:'CUS002',start:'09:30',end:'—',dist:22,duration:'Active',status:'In Progress'}];db.tripCounter=2;
+  db.bills=[
+    {id:'INV001',bookingId:'BK003',amount:290,tax:30,discount:0,total:320,mode:'UPI',status:'Paid',date:'2026-06-03'},
+    {id:'INV002',bookingId:'BK001',amount:650,tax:50,discount:50,total:650,mode:'Card',status:'Pending',date:'2026-06-04'},
+  ];db.billCounter=3;
+  // Seed logs
+  ['customers','drivers','vehicles','bookings','trips','invoices'].forEach(t=>{
+    logTxn('INSERT',t,'SEED','Initial seed data loaded');
+  });
+}
+
+/* ============================
+   LOGIN / AUTH SYSTEM
+============================ */
+const VALID_USERS = {
+  'admin': 'cabcore123',
+  'kathika': 'kathika123',
+  'demo': 'demo123'
+};
+
+function showApp(displayName, isGoogle){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('main-app').style.display='flex';
+  document.getElementById('user-name').textContent=displayName;
+  document.getElementById('user-avatar').textContent=displayName.charAt(0).toUpperCase();
+  sessionStorage.setItem('cabcore_user', JSON.stringify({name:displayName, google:!!isGoogle}));
+  seed();renderAll();refreshDashboard();renderIndexList();renderSavedQueries();
+}
+
+function doLogin(){
+  const u=document.getElementById('login-username').value.trim();
+  const p=document.getElementById('login-password').value;
+  const err=document.getElementById('login-error');
+  if(VALID_USERS[u.toLowerCase()] && VALID_USERS[u.toLowerCase()]===p){
+    err.style.display='none';
+    showApp(u.charAt(0).toUpperCase()+u.slice(1).toLowerCase(), false);
+  } else {
+    err.style.display='block';
+  }
+}
+
+function openGoogleModal(){
+  document.getElementById('googleModal').classList.add('open');
+  document.getElementById('gm-error').style.display='none';
+  document.getElementById('gm-email').value='';
+  document.getElementById('gm-pass').value='';
+  setTimeout(()=>document.getElementById('gm-email').focus(),100);
+}
+function closeGoogleModal(){
+  document.getElementById('googleModal').classList.remove('open');
+}
+function doGoogleLogin(){
+  const email=document.getElementById('gm-email').value.trim();
+  const pass=document.getElementById('gm-pass').value;
+  const err=document.getElementById('gm-error');
+  const emailRegex=/^[^\s@]+@(gmail\.com|googlemail\.com)$/i;
+  if(!emailRegex.test(email)){
+    err.textContent='Please enter a valid Gmail address.';
+    err.style.display='block';return;
+  }
+  if(!pass){
+    err.textContent='Please enter your password.';
+    err.style.display='block';return;
+  }
+  closeGoogleModal();
+  const name=email.split('@')[0].split(/[._]/)[0];
+  showApp(name.charAt(0).toUpperCase()+name.slice(1), true);
+}
+function doLogout(){
+  sessionStorage.removeItem('cabcore_user');
+  document.getElementById('main-app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('login-username').value='';
+  document.getElementById('login-password').value='';
+  document.getElementById('login-error').style.display='none';
+}
+document.getElementById('googleModal').addEventListener('click',function(e){if(e.target===this)closeGoogleModal();});
+
+window.onload=()=>{
+  // Check existing session
+  const saved=sessionStorage.getItem('cabcore_user');
+  if(saved){
+    try{
+      const u=JSON.parse(saved);
+      showApp(u.name, u.google);
+    }catch(e){}
+  }
+};
+</script>
+</body>
+</html>
